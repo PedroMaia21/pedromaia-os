@@ -1,12 +1,19 @@
 export async function loadModule(name) {
-    const res = await fetch('/modules/${name}/${name}.html')
+    const path = `/modules/${name}/${name}.html`;
+    
+    const res = await fetch(path);
+    
+    if(!res.ok) {
+        throw new Error("Failed to load ${path}");
+    }
+
     const html = await res.text();
 
     document.getElementById("content").innerHTML = html;
 
-    const moduleScript = await import(
-        '/modules/${name}/${name}.js'
-    );
 
-    moduleScript.init();
+    const module = await import(
+        `/modules/${name}/${name}.js`
+    );
+    module.init();
 }

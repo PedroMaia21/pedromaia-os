@@ -1,4 +1,9 @@
-import { loadModule } from "./router";
+import { loadModule } from "./router.js";
 import "./auth.js";
 
-loadModule("sideQuests");
+document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("btn-side-quests").addEventListener("click", () => {
+        loadModule("sideQuests");
+    });
+});
+
