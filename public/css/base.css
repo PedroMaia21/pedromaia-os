@@ -1,0 +1,18 @@
+:root{
+    --bg-main: #0f172a;
+    --bg-card: #1e293b;
+    --text-main: #e5e7eb;
+    --text-muted: #94a3b8;
+    --accent: #38bdf8;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: var(--bg-main);
+    color: var(--text-main);
+    font-family: var(--font-main);
+}

@@ -1,0 +1,13 @@
+.card {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    padding: var(--space);
+}
+
+.button {
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius);
+    padding: 8px 14px;
+    cursor: pointer;
+}

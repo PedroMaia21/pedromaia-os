@@ -1,0 +1,15 @@
+#app {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    height: 100vh;
+}
+
+#sidebar {
+    background: var(--bg-card);
+    padding: var(--space);
+}
+
+#content {
+    padding: 24px;
+    overflow-y: auto;
+}
