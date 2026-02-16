@@ -5,5 +5,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("btn-side-quests").addEventListener("click", () => {
         loadModule("sideQuests");
     });
+    document.getElementById("btn-playlists").addEventListener("click", () => {
+        loadModule("playlists");
+    });
 });
 
