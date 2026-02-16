@@ -22,6 +22,28 @@ export function init() {
 /* ===============================
    MANAGER EVENTS
 ================================ */
+function renderPlaylistManager(playlists) {
+  const container = document.getElementById("playlistManager");
+
+  container.innerHTML = playlists.map(p => `
+    <div style="border:1px solid #ccc; padding:8px; margin-bottom:8px;">
+      <strong>${p.name}</strong>
+      <br/>
+      Priority:
+      <input type="number" min="1" max="5" value="${p.priority}" data-id="${p.id}" class="priorityInput"/>
+      <br/>
+      Contexts: ${p.contexts.join(", ")}
+      <br/>
+      Status: ${p.status}
+      <br/><br/>
+      <button data-id="${p.id}" class="deleteBtn">Delete</button>
+      <button data-id="${p.id}" class="archiveBtn">Archive</button>
+    </div>
+  `).join("");
+
+  attachManagerEvents();
+}
+
 function attachManagerEvents() {
   const playlists = JSON.parse(localStorage.getItem("pm-playlists"));
 
@@ -52,37 +74,62 @@ function attachManagerEvents() {
 }
 
 function setupAddPlaylist() {
+  const container = document.getElementById("addPlaylistForm");
+
+  container.innerHTML = `
+    <div class="card">
+      <input type="text" id="newName" placeholder="Playlist name" />
+      
+      <label>Priority (1–5)</label><br/>
+      <input type="number" id="newPriority" min="1" max="5" value="3" />
+      
+      <br/><br/>
+      <label>Contexts:</label><br/>
+      <label><input type="checkbox" value="Gym" /> Gym</label>
+      <label><input type="checkbox" value="Work" /> Work</label>
+      <label><input type="checkbox" value="Driving" /> Driving</label>
+      <label><input type="checkbox" value="Relax" /> Relax</label>
+      <label><input type="checkbox" value="Free" /> Free</label>
+
+      <br/><br/>
+      <button id="addPlaylistBtn" class="primary">Add Playlist</button>
+    </div>
+  `;
+
   document.getElementById("addPlaylistBtn")
-    .addEventListener("click", () => {
+    .addEventListener("click", addPlaylist);
+}
 
-      const name = document.getElementById("newName").value.trim();
-      const priority = Number(document.getElementById("newPriority").value);
+function addPlaylist() {
+  const name = document.getElementById("newName").value.trim();
+  const priority = Number(document.getElementById("newPriority").value);
 
-      const contextCheckboxes =
-        document.querySelectorAll("#addPlaylistForm input[type=checkbox]:checked");
+  const contexts =
+    Array.from(document.querySelectorAll("#addPlaylistForm input[type=checkbox]:checked"))
+      .map(c => c.value);
 
-      const contexts = Array.from(contextCheckboxes).map(c => c.value);
+  if (!name || contexts.length === 0) {
+    alert("Please provide name and at least one context.");
+    return;
+  }
 
-      if (!name || contexts.length === 0) {
-        alert("Please provide name and at least one context.");
-        return;
-      }
+  const playlists = JSON.parse(localStorage.getItem("pm-playlists"));
 
-      const playlists = JSON.parse(localStorage.getItem("pm-playlists"));
+  playlists.push({
+    id: crypto.randomUUID(),
+    name,
+    contexts,
+    priority,
+    lastUsed: new Date(0).toISOString(),
+    status: "active"
+  });
 
-      playlists.push({
-        id: crypto.randomUUID(),
-        name,
-        contexts,
-        priority,
-        lastUsed: new Date(0).toISOString(),
-        status: "active"
-      });
+  savePlaylists(playlists);
 
-      savePlaylists(playlists);
+  renderPlaylistManager(playlists);
+  renderCleaning(playlists);
 
-      location.reload();
-    });
+  alert("Playlist added.");
 }
 
 /* ===============================
@@ -193,24 +240,64 @@ function calculateScore(p) {
 function renderDailyPlan(plan, playlists) {
   const container = document.getElementById("dailyPlan");
 
-  container.innerHTML = plan.map(block => {
+  container.innerHTML = plan.map((block, index) => {
     const playlist = playlists.find(p => p.id === block.playlist);
 
     return `
-      <div>
-        <strong>${block.label}</strong> (${block.context})<br/>
-        ${playlist ? playlist.name : "No playlist available"}
-        ${playlist ? `<button data-id="${playlist.id}">Mark as Used</button>` : ""}
-        <hr/>
+      <div class="card">
+        <h4>${block.label} (${block.context})</h4>
+        <p>${playlist ? playlist.name : "No playlist available"}</p>
+        ${playlist ? `
+          <button class="primary" data-id="${playlist.id}" data-action="use">Mark as Used</button>
+          <button class="secondary" data-index="${index}" data-action="swap">Swap</button>
+        ` : ""}
       </div>
     `;
   }).join("");
 
   container.querySelectorAll("button").forEach(btn => {
     btn.addEventListener("click", () => {
-      markAsUsed(btn.dataset.id);
+      const action = btn.dataset.action;
+
+      if (action === "use") {
+        markAsUsed(btn.dataset.id);
+      }
+
+      if (action === "swap") {
+        swapPlaylist(Number(btn.dataset.index));
+      }
     });
   });
+}
+
+function swapPlaylist(blockIndex) {
+  const todayKey = getTodayKey();
+  const plan = JSON.parse(localStorage.getItem(todayKey));
+  const playlists = JSON.parse(localStorage.getItem("pm-playlists"));
+
+  const block = plan[blockIndex];
+
+  const usedIds = new Set(plan.map(b => b.playlist));
+
+  const alternatives = playlists
+    .filter(p =>
+      p.contexts.includes(block.context) &&
+      p.status === "active" &&
+      !usedIds.has(p.id)
+    )
+    .map(p => ({ ...p, score: calculateScore(p) }))
+    .sort((a, b) => b.score - a.score);
+
+  if (!alternatives.length) {
+    alert("No alternative playlist available.");
+    return;
+  }
+
+  plan[blockIndex].playlist = alternatives[0].id;
+
+  localStorage.setItem(todayKey, JSON.stringify(plan));
+
+  renderDailyPlan(plan, playlists);
 }
 
 function renderCleaning(playlists) {
