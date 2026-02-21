@@ -7,9 +7,27 @@
 #sidebar {
     background: var(--bg-card);
     padding: var(--space);
+    display: flex;
+    flex-direction: column;
+}
+
+#sidebar h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+#sidebar button {
+    margin-bottom: 10px;
+    background: var(--accent);
+    color: var(--text-main);
+    border: none;
+    border-radius: var(--radius);
+    padding: 10px;
+    cursor: pointer;
+    font-size: 14px;
 }
 
 #content {
-    padding: 24px;
+    padding: var(--space);
     overflow-y: auto;
 }

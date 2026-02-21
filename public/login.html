@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Login - Personal OS</title>
+    <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .login-card {
+            background: var(--bg-card);
+            padding: 32px;
+            border-radius: var(--radius);
+            width: 320px;
+            text-align: center;
+        }
+        .login-card h2 {
+            margin-bottom: 20px;
+        }
+        .login-card button {
+            width: 100%;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h2>Login to Personal OS</h2>
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="password" placeholder="Password">
+        <button id="btn-login" class="primary">Login</button>
+        <button id="btn-register" class="secondary">Register</button>
+        <hr style="margin:20px 0; border-color: #555;">
+        <button id="btn-google" class="primary">Login with Google</button>
+    </div>
+
+    <script type="module" src="/js/login.js"></script>
+</body>
+</html>

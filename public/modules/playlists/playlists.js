@@ -1,41 +1,111 @@
-export function init() {
+import {
+  subscribeToPlaylists,
+  addPlaylist,
+  updatePlaylist,
+  deletePlaylist,
+  getOrCreateDailyPlan,
+  subscribeToDailyPlan,
+  updateDailyPlan
+} from "./playlists.service.js";
+
+import {
+  generateDailyPlan,
+  calculateScore,
+  updateStatuses,
+  getTodayKey
+} from "./playlists.engine.js";
+
+let currentPlaylists = [];
+let currentPlan = [];
+
+/* ===============================
+   INIT
+================================ */
+export async function init() {
   console.log("Playlists module initialized");
 
-  const playlists = getOrCreatePlaylists();
-  updateStatuses(playlists);
-  savePlaylists(playlists);
+  // Subscribe to playlists (real-time updates)
+  await subscribeToPlaylists(async playlists => {
+    currentPlaylists = playlists;
+    updateStatuses(currentPlaylists);
 
-  const todayKey = getTodayKey();
-  let dailyPlan = JSON.parse(localStorage.getItem(todayKey));
+    renderPlaylistManager(currentPlaylists);
+    renderCleaning(currentPlaylists);
 
-  if (!dailyPlan) {
-    dailyPlan = generateDailyPlan(playlists);
-    localStorage.setItem(todayKey, JSON.stringify(dailyPlan));
-  }
+    const todayKey = getTodayKey();
 
-  renderDailyPlan(dailyPlan, playlists);
-  renderCleaning(playlists);
-  renderPlaylistManager(playlists);
+    // Ensure daily plan exists
+    await getOrCreateDailyPlan(todayKey, () => generateDailyPlan(currentPlaylists));
+
+    // Subscribe to daily plan changes
+    await subscribeToDailyPlan(todayKey, blocks => {
+      currentPlan = blocks;
+      renderDailyPlan(currentPlan);
+    });
+  });
+
   setupAddPlaylist();
-
 }
+
 /* ===============================
-   MANAGER EVENTS
+   ADD PLAYLIST UI
+================================ */
+function setupAddPlaylist() {
+  const container = document.getElementById("addPlaylistForm");
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="card">
+      <input type="text" id="newName" placeholder="Playlist name" />
+      <label>Priority (1–5)</label><br/>
+      <input type="number" id="newPriority" min="1" max="5" value="3" />
+      <br/><br/>
+      <label>Contexts:</label><br/>
+      <label><input type="checkbox" value="Gym" /> Gym</label>
+      <label><input type="checkbox" value="Work" /> Work</label>
+      <label><input type="checkbox" value="Driving" /> Driving</label>
+      <label><input type="checkbox" value="Relax" /> Relax</label>
+      <label><input type="checkbox" value="Free" /> Free</label>
+      <br/><br/>
+      <button id="addPlaylistBtn" class="primary">Add Playlist</button>
+    </div>
+  `;
+
+  const btn = document.getElementById("addPlaylistBtn");
+  if (!btn) return;
+
+  btn.addEventListener("click", async () => {
+    const name = document.getElementById("newName").value.trim();
+    const priority = Number(document.getElementById("newPriority").value);
+    const contexts = Array.from(
+      container.querySelectorAll("input[type=checkbox]:checked")
+    ).map(c => c.value);
+
+    if (!name || contexts.length === 0) {
+      alert("Please provide name and at least one context.");
+      return;
+    }
+
+    await addPlaylist({ name, priority, contexts });
+    alert("Playlist added.");
+  });
+}
+
+/* ===============================
+   RENDER PLAYLIST MANAGER
 ================================ */
 function renderPlaylistManager(playlists) {
   const container = document.getElementById("playlistManager");
+  if (!container) return;
 
   container.innerHTML = playlists.map(p => `
     <div style="border:1px solid #ccc; padding:8px; margin-bottom:8px;">
-      <strong>${p.name}</strong>
-      <br/>
-      Priority:
-      <input type="number" min="1" max="5" value="${p.priority}" data-id="${p.id}" class="priorityInput"/>
-      <br/>
-      Contexts: ${p.contexts.join(", ")}
-      <br/>
-      Status: ${p.status}
-      <br/><br/>
+      <strong>${p.name}</strong><br/>
+      Priority: <input type="number" min="1" max="5" value="${p.priority}" data-id="${p.id}" class="priorityInput"/><br/>
+      Contexts: ${p.contexts.join(", ")}<br/>
+      Status: ${p.status}<br/><br/>
+      <button data-id="${p.id}" class="useBtn">Mark as Used</button>
+      <button data-id="${p.id}" class="swapBtn">Swap</button>
       <button data-id="${p.id}" class="deleteBtn">Delete</button>
       <button data-id="${p.id}" class="archiveBtn">Archive</button>
     </div>
@@ -45,204 +115,46 @@ function renderPlaylistManager(playlists) {
 }
 
 function attachManagerEvents() {
-  const playlists = JSON.parse(localStorage.getItem("pm-playlists"));
-
   document.querySelectorAll(".priorityInput").forEach(input => {
-    input.addEventListener("change", () => {
-      const playlist = playlists.find(p => p.id === input.dataset.id);
-      playlist.priority = Number(input.value);
-      savePlaylists(playlists);
+    input.addEventListener("change", async () => {
+      const playlist = currentPlaylists.find(p => p.id === input.dataset.id);
+      if (!playlist) return;
+      await updatePlaylist(input.dataset.id, { priority: Number(input.value) });
     });
   });
 
+  document.querySelectorAll(".useBtn").forEach(btn => {
+    btn.addEventListener("click", () => markAsUsed(btn.dataset.id));
+  });
+
+  document.querySelectorAll(".swapBtn").forEach((btn, index) => {
+    btn.addEventListener("click", () => swapPlaylist(index));
+  });
+
   document.querySelectorAll(".deleteBtn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const updated = playlists.filter(p => p.id !== btn.dataset.id);
-      savePlaylists(updated);
-      location.reload();
+    btn.addEventListener("click", async () => {
+      if (confirm("Are you sure you want to delete this playlist?")) {
+        await deletePlaylist(btn.dataset.id);
+      }
     });
   });
 
   document.querySelectorAll(".archiveBtn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const playlist = playlists.find(p => p.id === btn.dataset.id);
-      playlist.status = "archived";
-      savePlaylists(playlists);
-      location.reload();
+    btn.addEventListener("click", async () => {
+      await updatePlaylist(btn.dataset.id, { status: "archived" });
     });
   });
 }
 
-function setupAddPlaylist() {
-  const container = document.getElementById("addPlaylistForm");
-
-  container.innerHTML = `
-    <div class="card">
-      <input type="text" id="newName" placeholder="Playlist name" />
-      
-      <label>Priority (1–5)</label><br/>
-      <input type="number" id="newPriority" min="1" max="5" value="3" />
-      
-      <br/><br/>
-      <label>Contexts:</label><br/>
-      <label><input type="checkbox" value="Gym" /> Gym</label>
-      <label><input type="checkbox" value="Work" /> Work</label>
-      <label><input type="checkbox" value="Driving" /> Driving</label>
-      <label><input type="checkbox" value="Relax" /> Relax</label>
-      <label><input type="checkbox" value="Free" /> Free</label>
-
-      <br/><br/>
-      <button id="addPlaylistBtn" class="primary">Add Playlist</button>
-    </div>
-  `;
-
-  document.getElementById("addPlaylistBtn")
-    .addEventListener("click", addPlaylist);
-}
-
-function addPlaylist() {
-  const name = document.getElementById("newName").value.trim();
-  const priority = Number(document.getElementById("newPriority").value);
-
-  const contexts =
-    Array.from(document.querySelectorAll("#addPlaylistForm input[type=checkbox]:checked"))
-      .map(c => c.value);
-
-  if (!name || contexts.length === 0) {
-    alert("Please provide name and at least one context.");
-    return;
-  }
-
-  const playlists = JSON.parse(localStorage.getItem("pm-playlists"));
-
-  playlists.push({
-    id: crypto.randomUUID(),
-    name,
-    contexts,
-    priority,
-    lastUsed: new Date(0).toISOString(),
-    status: "active"
-  });
-
-  savePlaylists(playlists);
-
-  renderPlaylistManager(playlists);
-  renderCleaning(playlists);
-
-  alert("Playlist added.");
-}
-
 /* ===============================
-   PLAYLIST STORAGE
+   RENDER DAILY PLAN
 ================================ */
-
-function getOrCreatePlaylists() {
-  const stored = localStorage.getItem("pm-playlists");
-
-  if (stored) {
-    return JSON.parse(stored);
-  }
-
-  const seedData = [
-    {
-      id: "gym-power",
-      name: "Gym Power",
-      contexts: ["Gym", "Driving"],
-      priority: 5,
-      lastUsed: "2026-02-10T00:00:00.000Z",
-      status: "active"
-    },
-    {
-      id: "deep-focus",
-      name: "Deep Focus",
-      contexts: ["Work"],
-      priority: 5,
-      lastUsed: "2026-02-12T00:00:00.000Z",
-      status: "active"
-    },
-    {
-      id: "night-chill",
-      name: "Night Chill",
-      contexts: ["Relax", "Free"],
-      priority: 4,
-      lastUsed: "2026-01-01T00:00:00.000Z",
-      status: "active"
-    }
-  ];
-
-  localStorage.setItem("pm-playlists", JSON.stringify(seedData));
-  return seedData;
-}
-
-function savePlaylists(playlists) {
-  localStorage.setItem("pm-playlists", JSON.stringify(playlists));
-}
-
-/* ===============================
-   DAILY PLAN ENGINE
-================================ */
-
-function getTodayKey() {
-  const today = new Date().toISOString().split("T")[0];
-  return "dailyPlan-" + today;
-}
-
-function generateDailyPlan(playlists) {
-  const usedToday = new Set();
-  const isWeekend = [0, 6].includes(new Date().getDay());
-
-  const timeBlocks = [
-    { label: "Early Morning", context: "Gym" },
-    { label: "Morning", context: isWeekend ? "Free" : "Work" },
-    { label: "Afternoon", context: isWeekend ? "Free" : "Work" },
-    { label: "Evening", context: "Driving" },
-    { label: "Night", context: "Relax" },
-    { label: "Late Night", context: "Free" }
-  ];
-
-  return timeBlocks.map(block => {
-    const candidates = playlists
-      .filter(p =>
-        p.contexts.includes(block.context) &&
-        p.status === "active" &&
-        !usedToday.has(p.id)
-      )
-      .map(p => ({ ...p, score: calculateScore(p) }))
-      .sort((a, b) => b.score - a.score);
-
-    if (!candidates.length) {
-      return { ...block, playlist: null };
-    }
-
-    const selected = candidates[0];
-    usedToday.add(selected.id);
-
-    return { ...block, playlist: selected.id };
-  });
-}
-
-function calculateScore(p) {
-  const today = new Date();
-  const lastUsed = new Date(p.lastUsed);
-
-  const daysSince =
-    (today - lastUsed) / (1000 * 60 * 60 * 24);
-
-  const recentPenalty = daysSince < 2 ? 10 : 0;
-
-  return (p.priority * 2) + daysSince - recentPenalty;
-}
-
-/* ===============================
-   RENDERING
-================================ */
-
-function renderDailyPlan(plan, playlists) {
+function renderDailyPlan(plan) {
   const container = document.getElementById("dailyPlan");
+  if (!container) return;
 
   container.innerHTML = plan.map((block, index) => {
-    const playlist = playlists.find(p => p.id === block.playlist);
-
+    const playlist = currentPlaylists.find(p => p.id === block.playlist);
     return `
       <div class="card">
         <h4>${block.label} (${block.context})</h4>
@@ -256,58 +168,27 @@ function renderDailyPlan(plan, playlists) {
   }).join("");
 
   container.querySelectorAll("button").forEach(btn => {
+    const action = btn.dataset.action;
+    if (!action) return;
+
     btn.addEventListener("click", () => {
-      const action = btn.dataset.action;
-
-      if (action === "use") {
-        markAsUsed(btn.dataset.id);
-      }
-
-      if (action === "swap") {
-        swapPlaylist(Number(btn.dataset.index));
-      }
+      if (action === "use") markAsUsed(btn.dataset.id);
+      if (action === "swap") swapPlaylist(Number(btn.dataset.index));
     });
   });
 }
 
-function swapPlaylist(blockIndex) {
-  const todayKey = getTodayKey();
-  const plan = JSON.parse(localStorage.getItem(todayKey));
-  const playlists = JSON.parse(localStorage.getItem("pm-playlists"));
-
-  const block = plan[blockIndex];
-
-  const usedIds = new Set(plan.map(b => b.playlist));
-
-  const alternatives = playlists
-    .filter(p =>
-      p.contexts.includes(block.context) &&
-      p.status === "active" &&
-      !usedIds.has(p.id)
-    )
-    .map(p => ({ ...p, score: calculateScore(p) }))
-    .sort((a, b) => b.score - a.score);
-
-  if (!alternatives.length) {
-    alert("No alternative playlist available.");
-    return;
-  }
-
-  plan[blockIndex].playlist = alternatives[0].id;
-
-  localStorage.setItem(todayKey, JSON.stringify(plan));
-
-  renderDailyPlan(plan, playlists);
-}
-
+/* ===============================
+   CLEANING
+================================ */
 function renderCleaning(playlists) {
   const container = document.getElementById("cleaningList");
-  const today = new Date();
+  if (!container) return;
 
+  const today = new Date();
   const neglected = playlists.filter(p => {
     const lastUsed = new Date(p.lastUsed);
-    const daysSince =
-      (today - lastUsed) / (1000 * 60 * 60 * 24);
+    const daysSince = (today - lastUsed) / (1000 * 60 * 60 * 24);
     return daysSince > 45;
   });
 
@@ -319,35 +200,33 @@ function renderCleaning(playlists) {
 /* ===============================
    ACTIONS
 ================================ */
-
-function markAsUsed(id) {
-  const playlists = JSON.parse(localStorage.getItem("pm-playlists"));
-  const playlist = playlists.find(p => p.id === id);
+export async function markAsUsed(id) {
+  const playlist = currentPlaylists.find(p => p.id === id);
   if (!playlist) return;
 
-  playlist.lastUsed = new Date().toISOString();
-
-  savePlaylists(playlists);
-
+  await updatePlaylist(id, { lastUsed: new Date() });
   alert(`${playlist.name} marked as used today.`);
 }
 
-/* ===============================
-   STATUS UPDATE
-================================ */
+export async function swapPlaylist(blockIndex) {
+  if (!currentPlan || !currentPlan.length) return;
 
-function updateStatuses(playlists) {
-  const today = new Date();
+  const block = currentPlan[blockIndex];
+  if (!block) return;
 
-  playlists.forEach(p => {
-    const lastUsed = new Date(p.lastUsed);
-    const daysSince =
-      (today - lastUsed) / (1000 * 60 * 60 * 24);
+  const usedIds = new Set(currentPlan.map(b => b.playlist));
 
-    if (daysSince > 45) {
-      p.status = "clean";
-    } else {
-      p.status = "active";
-    }
-  });
+  const alternatives = currentPlaylists
+    .filter(p => p.contexts.includes(block.context) && p.status === "active" && !usedIds.has(p.id))
+    .map(p => ({ ...p, score: calculateScore(p) }))
+    .sort((a, b) => b.score - a.score);
+
+  if (!alternatives.length) {
+    alert("No alternative available.");
+    return;
+  }
+
+  const updatedPlan = [...currentPlan];
+  updatedPlan[blockIndex] = { ...block, playlist: alternatives[0].id };
+  await updateDailyPlan(getTodayKey(), updatedPlan);
 }

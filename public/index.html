@@ -1,29 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Personal OS</title>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Personal OS</title>
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/layout.css">
+<link rel="stylesheet" href="/css/components.css">
+</head>
+<body>
+<div id="app" style="display:none;">
 
-    <link rel="stylesheet" href="/css/base.css" />
-    <link rel="stylesheet" href="/css/layout.css" />
-    <link rel="stylesheet" href="/css/components.css" />
-  </head>
-  <body>
-    <header id="top-bar"></header>
-
-    <div id="app">
-      <nav id="sidebar">
+    <nav id="sidebar">
         <h2>Pedro OS</h2>
         <button id="btn-side-quests">Side Quests</button>
         <button id="btn-playlists">Playlist Suggester</button>
-      </nav>
-      <main id="content">
+    </nav>
+
+    <main id="content">
         <h1>Welcome</h1>
         <p>Select a module from the sidebar</p>
-      </main>
-    </div>
+    </main>
 
-    <script type="module" src="/js/app.js"></script>
-  </body>
+</div>
+
+<script type="module" src="/js/app.js"></script>
+</body>
 </html>

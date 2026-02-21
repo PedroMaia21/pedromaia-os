@@ -2,12 +2,33 @@
     background: var(--bg-card);
     border-radius: var(--radius);
     padding: var(--space);
+    margin-bottom: var(--space);
 }
 
-.button {
+button.primary {
     background: var(--accent);
+    color: var(--text-main);
     border: none;
     border-radius: var(--radius);
     padding: 8px 14px;
     cursor: pointer;
+}
+
+button.secondary {
+    background: var(--bg-main);
+    color: var(--text-main);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 8px 14px;
+    cursor: pointer;
+}
+
+input, select {
+    margin: 6px 0 12px 0;
+    padding: 6px;
+    border-radius: var(--radius);
+    border: 1px solid #555;
+    background: #1e293b;
+    color: var(--text-main);
+    width: 100%;
 }
