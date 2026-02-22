@@ -31,7 +31,7 @@ export function calculateScore(p) {
   return (p.priority * 2) + daysSince - recentPenalty;
 }
 
-export function generateDailyPlan(playlists) {
+export function generateDailyPlan(playlists) {  
   const usedToday = new Set();
   const isWeekend = [0, 6].includes(new Date().getDay());
 
@@ -45,14 +45,29 @@ export function generateDailyPlan(playlists) {
   ];
 
   return timeBlocks.map(block => {
-    const candidates = playlists
+    let candidates = playlists
       .filter(p =>
-        p.contexts.includes(block.context) &&
-        p.status === "active" &&
+        p.contexts?.some(c =>
+          c.toLowerCase() === block.context.toLowerCase()
+        ) &&
+        p.status !== "archived" &&
         !usedToday.has(p.id)
       )
       .map(p => ({ ...p, score: calculateScore(p) }))
       .sort((a, b) => b.score - a.score);
+
+    // Allow reuse if no unused candidates
+    if (!candidates.length) {
+      candidates = playlists
+        .filter(p =>
+          p.contexts?.some(c =>
+            c.toLowerCase() === block.context.toLowerCase()
+          ) &&
+          p.status === "active"
+        )
+        .map(p => ({ ...p, score: calculateScore(p) }))
+        .sort((a, b) => b.score - a.score);
+    }
 
     if (!candidates.length) {
       return { ...block, playlist: null };

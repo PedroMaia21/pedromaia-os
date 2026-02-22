@@ -5,7 +5,8 @@ import {
   deletePlaylist,
   getOrCreateDailyPlan,
   subscribeToDailyPlan,
-  updateDailyPlan
+  updateDailyPlan,
+  regenerateDailyPlan
 } from "./playlists.service.js";
 
 import {
@@ -178,6 +179,14 @@ function renderDailyPlan(plan) {
   });
 }
 
+document.getElementById("regenBtn")
+  .addEventListener("click", async () => {
+
+    const todayKey = getTodayKey();
+    const newPlan = generateDailyPlan(currentPlaylists);
+
+    await updateDailyPlan(todayKey, newPlan);
+  });
 /* ===============================
    CLEANING
 ================================ */

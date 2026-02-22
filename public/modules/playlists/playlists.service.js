@@ -65,7 +65,7 @@ export async function getOrCreateDailyPlan(dateKey, generatorFn) {
 
   if (snap.exists()) return snap.data().blocks;
 
-  const plan = generatorFn();
+  const plan = await generatorFn();
 
   await setDoc(ref, {
     date: dateKey,
@@ -87,4 +87,9 @@ export async function subscribeToDailyPlan(dateKey, callback) {
 export async function updateDailyPlan(dateKey, blocks) {
   const ref = await dailyPlanRef(dateKey);
   await updateDoc(ref, { blocks });
+}
+
+export async function regenerateDailyPlan(dateKey, generatorFn) {
+   const newBlocks = await generatorFn();
+   await updateDailyPlan(dateKey, newBlocks);
 }
