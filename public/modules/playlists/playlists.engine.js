@@ -73,8 +73,12 @@ export function generateDailyPlan(playlists) {
       return { ...block, playlist: null };
     }
 
-    const selected = candidates[0];
-    usedToday.add(selected.id);
+    const topCandidates = candidates.slice(0, 3);
+
+    const selected =
+      topCandidates[Math.floor(Math.random() * topCandidates.length)];
+    
+      usedToday.add(selected.id);
 
     return { ...block, playlist: selected.id };
   });

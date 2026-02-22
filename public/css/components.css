@@ -32,3 +32,117 @@ input, select {
     color: var(--text-main);
     width: 100%;
 }
+
+.loader {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255,255,255,0.2);
+  border-top: 3px solid white;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin: 10px auto;
+}
+
+.hidden {
+  display: none;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.plan-refresh {
+  animation: fadeRefresh 0.25s ease;
+}
+
+@keyframes fadeRefresh {
+  from { opacity: 0.4; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 999;
+}
+
+.toast {
+  background: #1e1e1e;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: toastIn 0.25s ease forwards;
+}
+
+@keyframes toastIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rotate {
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+button.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.last-regen {
+  font-size: 12px;
+  opacity: 0.6;
+  margin-top: 6px;
+}
+
+.undo-btn {
+  margin-left: 10px;
+  background: transparent;
+  border: none;
+  color: #4da6ff;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.undo-btn:hover {
+  text-decoration: underline;
+}
+
+.undo-toast {
+  position: relative;
+  overflow: hidden;
+  padding-bottom: 8px;
+}
+
+.toast-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  width: 100%;
+  background: linear-gradient(90deg, #4da6ff, #6f86ff);
+}
+
+@keyframes shrinkBar {
+  from { width: 100%; }
+  to { width: 0%; }
+}

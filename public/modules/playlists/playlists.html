@@ -40,7 +40,14 @@ input, select {
 </style>
 
 <h2>🎵 Daily Soundtrack</h2>
-<div><button id="regenBtn">Generate New Plan</button></div>
+<div class="daily-plan-controls">
+  <button id="regenBtn">
+    <span id="regenIcon">⟳</span> Regenerate
+  </button>
+  <div id="lastRegenInfo" class="last-regen"></div>
+</div>
+<div id="planLoader" class="loader hidden"></div>
+<div id="toastContainer" class="toast-container"></div>
 <div id="dailyPlan" class="section"></div>
 
 <h3>➕ Add Playlist</h3>

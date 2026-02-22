@@ -18,6 +18,8 @@ import {
 
 let currentPlaylists = [];
 let currentPlan = [];
+let lastPlanSnapshot = null;
+let undoTimeout = null;
 
 /* ===============================
    INIT
@@ -40,8 +42,8 @@ export async function init() {
 
     // Subscribe to daily plan changes
     await subscribeToDailyPlan(todayKey, blocks => {
-      currentPlan = blocks;
-      renderDailyPlan(currentPlan);
+      window.currentDailyPlanBlocks = blocks;
+      renderDailyPlan(blocks);
     });
   });
 
@@ -181,11 +183,33 @@ function renderDailyPlan(plan) {
 
 document.getElementById("regenBtn")
   .addEventListener("click", async () => {
-
+    if (!confirm("Generate a new daily plan?")) return;
+    
     const todayKey = getTodayKey();
+
+    setPlanButtonsDisabled(true);
+    rotateRegenIcon(true);
+
+    // 1️⃣ Store previous plan
+    const previousPlan = [...window.currentDailyPlanBlocks];
+    lastPlanSnapshot = previousPlan;
+
+    // 2️⃣ Generate new plan
+    updateStatuses(currentPlaylists);
     const newPlan = generateDailyPlan(currentPlaylists);
 
+    // 3️⃣ Optimistic render (instant UI update)
+    renderDailyPlan(newPlan);
+    window.currentDailyPlanBlocks = newPlan;
+
+    // 4️⃣ Show undo toast
+    showUndoToast(todayKey);
+
+    // 5️⃣ Write to Firestore (background)
     await updateDailyPlan(todayKey, newPlan);
+
+    rotateRegenIcon(false);
+    setPlanButtonsDisabled(false);
   });
 /* ===============================
    CLEANING
@@ -238,4 +262,64 @@ export async function swapPlaylist(blockIndex) {
   const updatedPlan = [...currentPlan];
   updatedPlan[blockIndex] = { ...block, playlist: alternatives[0].id };
   await updateDailyPlan(getTodayKey(), updatedPlan);
+}
+/* ===============================
+   UTILITY HELPERS
+================================ */
+function setPlanButtonsDisabled(disabled) {
+  const regenBtn = document.getElementById("regenBtn");
+
+  if (!regenBtn) return;
+
+  regenBtn.disabled = disabled;
+  regenBtn.classList.toggle("disabled", disabled);
+}
+
+function showUndoToast(todayKey) {
+  const container = document.getElementById("toastContainer");
+  if (!container) return;
+
+  const toast = document.createElement("div");
+  toast.className = "toast undo-toast";
+
+  toast.innerHTML = `
+    <div class="toast-content">
+      <span>New plan generated.</span>
+      <button class="undo-btn">Undo</button>
+    </div>
+    <div class="toast-progress"></div>
+  `;
+
+  container.appendChild(toast);
+
+  const undoBtn = toast.querySelector(".undo-btn");
+  const progressBar = toast.querySelector(".toast-progress");
+
+  // Start shrinking animation
+  progressBar.style.animation = "shrinkBar 10s linear forwards";
+
+  undoBtn.addEventListener("click", async () => {
+    if (!lastPlanSnapshot) return;
+
+    clearTimeout(undoTimeout);
+
+    renderDailyPlan(lastPlanSnapshot);
+    window.currentDailyPlanBlocks = lastPlanSnapshot;
+
+    await updateDailyPlan(todayKey, lastPlanSnapshot);
+
+    toast.remove();
+  });
+
+  undoTimeout = setTimeout(() => {
+    toast.remove();
+    lastPlanSnapshot = null;
+  }, 10000);
+}
+
+function rotateRegenIcon(shouldRotate) {
+  const icon = document.getElementById("regenIcon");
+  if (!icon) return;
+
+  icon.classList.toggle("rotate", shouldRotate);
 }
