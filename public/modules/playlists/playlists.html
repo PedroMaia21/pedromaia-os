@@ -1,60 +1,49 @@
-<style>
-.section {
-  margin-bottom: 30px;
-}
+<header class="module-header">
+  <h2>🎵 Daily Soundtrack</h2>
+</header>
 
-.card {
-  border: 1px solid #ddd;
-  padding: 16px;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  background: #fafafa;
-}
+<nav class="tabs" role="tablist" aria-label="Soundtrack Navigation">
+  <button class="tab active" data-tab="daily" role="tab" aria-selected="true" aria-controls="tab-daily">Daily Plan</button>
+  <button class="tab" data-tab="playlists" role="tab" aria-selected="false" aria-controls="tab-playlists">Playlists</button>
+  <button class="tab" data-tab="maintenance" role="tab" aria-selected="false" aria-controls="tab-maintenance">Maintenance</button>
+</nav>
 
-.card h4 {
-  margin: 0 0 8px 0;
-}
+<div class="tab-content">
 
-button {
-  padding: 6px 10px;
-  margin-top: 8px;
-  cursor: pointer;
-}
+  <section id="tab-daily" class="tab-panel active" role="tabpanel">
+    <div class="daily-plan-controls">
+      <button id="regenBtn" class="secondary">
+        <span id="regenIcon" class="icon">⟳</span> 
+        <span>Regenerate</span>
+      </button>
+      <div id="lastRegenInfo" class="last-regen"></div>
+    </div>
 
-button.primary {
-  background: #222;
-  color: white;
-  border: none;
-  border-radius: 4px;
-}
+    <div id="planLoader" class="loader hidden" aria-label="Loading your plan..."></div>
+    <div id="dailyPlan" class="section">
+        <p class="text-muted">No plan generated yet. Hit regenerate to start.</p>
+    </div>
+  </section>
 
-button.secondary {
-  background: white;
-  border: 1px solid #aaa;
-  border-radius: 4px;
-}
+  <section id="tab-playlists" class="tab-panel" role="tabpanel">
+    <div class="section">
+        <h3>➕ Add Playlist</h3>
+        <div id="addPlaylistForm"></div>
+    </div>
 
-input, select {
-  margin: 4px 0 10px 0;
-}
-</style>
+    <div class="section">
+        <h3>📚 Manage Playlists</h3>
+        <div id="playlistManager"></div>
+    </div>
+  </section>
 
-<h2>🎵 Daily Soundtrack</h2>
-<div class="daily-plan-controls">
-  <button id="regenBtn">
-    <span id="regenIcon">⟳</span> Regenerate
-  </button>
-  <div id="lastRegenInfo" class="last-regen"></div>
+  <section id="tab-maintenance" class="tab-panel" role="tabpanel">
+    <div class="section">
+        <h3>🧹 Needs Cleaning</h3>
+        <div id="cleaningList"></div>
+    </div>
+  </section>
+
 </div>
-<div id="planLoader" class="loader hidden"></div>
+
 <div id="toastContainer" class="toast-container"></div>
-<div id="dailyPlan" class="section"></div>
-
-<h3>➕ Add Playlist</h3>
-<div id="addPlaylistForm" class="section"></div>
-
-<h3>📚 Manage Playlists</h3>
-<div id="playlistManager" class="section"></div>
-
-<h3>🧹 Needs Cleaning</h3>
-<div id="cleaningList" class="section"></div>

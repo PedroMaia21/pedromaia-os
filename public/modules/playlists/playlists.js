@@ -6,7 +6,6 @@ import {
   getOrCreateDailyPlan,
   subscribeToDailyPlan,
   updateDailyPlan,
-  regenerateDailyPlan
 } from "./playlists.service.js";
 
 import {
@@ -27,57 +26,75 @@ let undoTimeout = null;
 export async function init() {
   console.log("Playlists module initialized");
 
-  // Subscribe to playlists (real-time updates)
-  await subscribeToPlaylists(async playlists => {
+  const todayKey = getTodayKey();
+
+  // 1. Subscribe to Playlists
+  subscribeToPlaylists(async (playlists) => {
     currentPlaylists = playlists;
     updateStatuses(currentPlaylists);
 
     renderPlaylistManager(currentPlaylists);
     renderCleaning(currentPlaylists);
 
-    const todayKey = getTodayKey();
-
-    // Ensure daily plan exists
+    // Ensure daily plan exists for today
     await getOrCreateDailyPlan(todayKey, () => generateDailyPlan(currentPlaylists));
-
-    // Subscribe to daily plan changes
-    await subscribeToDailyPlan(todayKey, blocks => {
-      window.currentDailyPlanBlocks = blocks;
-      renderDailyPlan(blocks);
-    });
   });
 
-  setupAddPlaylist();
+  // 2. Subscribe to Daily Plan
+  await subscribeToDailyPlan(todayKey, (blocks) => {
+    currentPlan = blocks;
+    renderDailyPlan(blocks);
+  });
+  
+  setupEventListeners();
+  setupAddPlaylistForm();
+  initPlaylistTabs();
 }
 
-/* ===============================
-   ADD PLAYLIST UI
-================================ */
-function setupAddPlaylist() {
+/* --- UI Logic --- */
+
+function initPlaylistTabs() {
+  const tabsContainer = document.querySelector(".tabs");
+  const panels = document.querySelectorAll(".tab-panel");
+
+  tabsContainer?.addEventListener("click", (e) => {
+    const tab = e.target.closest(".tab");
+    if (!tab) return;
+
+    const target = tab.dataset.tab;
+
+    document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t === tab));
+
+    panels.forEach(p => p.classList.toggle("active", p.id === `tab-${target}`));
+  });
+}
+
+function setupAddPlaylistForm() {
   const container = document.getElementById("addPlaylistForm");
   if (!container) return;
 
   container.innerHTML = `
     <div class="card">
       <input type="text" id="newName" placeholder="Playlist name" />
-      <label>Priority (1–5)</label><br/>
-      <input type="number" id="newPriority" min="1" max="5" value="3" />
-      <br/><br/>
-      <label>Contexts:</label><br/>
-      <label><input type="checkbox" value="Gym" /> Gym</label>
-      <label><input type="checkbox" value="Work" /> Work</label>
-      <label><input type="checkbox" value="Driving" /> Driving</label>
-      <label><input type="checkbox" value="Relax" /> Relax</label>
-      <label><input type="checkbox" value="Free" /> Free</label>
-      <br/><br/>
+      
+      <div style="margin: 10px 0;">
+        <label>Priority (1–5)</label>
+        <input type="number" id="newPriority" min="1" max="5" value="3" style="width: 60px; margin-left: 10px;"/>
+      </div>
+
+      <div class="context-chips" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;">
+        <label><input type="checkbox" value="Gym" /> Gym</label>
+        <label><input type="checkbox" value="Work" /> Work</label>
+        <label><input type="checkbox" value="Driving" /> Driving</label>
+        <label><input type="checkbox" value="Relax" /> Relax</label>
+        <label><input type="checkbox" value="Free" /> Free</label>
+      </div>
+      
       <button id="addPlaylistBtn" class="primary">Add Playlist</button>
     </div>
   `;
 
-  const btn = document.getElementById("addPlaylistBtn");
-  if (!btn) return;
-
-  btn.addEventListener("click", async () => {
+  document.getElementById("addPlaylistBtn")?.addEventListener("click", async () => {
     const name = document.getElementById("newName").value.trim();
     const priority = Number(document.getElementById("newPriority").value);
     const contexts = Array.from(
@@ -85,13 +102,36 @@ function setupAddPlaylist() {
     ).map(c => c.value);
 
     if (!name || contexts.length === 0) {
-      alert("Please provide name and at least one context.");
+      alert("Please provide a name and at least one context.");
       return;
     }
 
-    await addPlaylist({ name, priority, contexts });
-    alert("Playlist added.");
+    await addPlaylist({ name, priority, contexts, status: "active", lastUsed: new Date().toISOString() });
+    
+    // Clear form
+    document.getElementById("newName").value = "";
+    container.querySelectorAll("input[type=checkbox]").forEach(c => c.checked = false);
+    alert("Playlist added!");
   });
+}
+
+function renderDailyPlan(plan) {
+  const container = document.getElementById("dailyPlan");
+  if (!container) return;
+
+  container.innerHTML = plan.map((block, index) => {
+    const playlist = currentPlaylists.find(p => p.id === block.playlist);
+    return `
+      <div class="card plan-refresh">
+        <h4>${block.label} <small style="color:var(--text-muted)">(${block.context})</small></h4>
+        <p><strong>${playlist ? playlist.name : "Silence"}</strong></p>
+        <div style="display:flex; gap:8px">
+          ${playlist ? `<button class="primary" data-id="${playlist.id}" data-action="use">Mark as Used</button>` : ""}
+          <button class="secondary" data-index="${index}" data-action="swap">Swap</button>
+        </div>
+      </div>
+    `;
+  }).join("");
 }
 
 /* ===============================
@@ -102,189 +142,94 @@ function renderPlaylistManager(playlists) {
   if (!container) return;
 
   container.innerHTML = playlists.map(p => `
-    <div style="border:1px solid #ccc; padding:8px; margin-bottom:8px;">
-      <strong>${p.name}</strong><br/>
-      Priority: <input type="number" min="1" max="5" value="${p.priority}" data-id="${p.id}" class="priorityInput"/><br/>
-      Contexts: ${p.contexts.join(", ")}<br/>
-      Status: ${p.status}<br/><br/>
-      <button data-id="${p.id}" class="useBtn">Mark as Used</button>
-      <button data-id="${p.id}" class="swapBtn">Swap</button>
-      <button data-id="${p.id}" class="deleteBtn">Delete</button>
-      <button data-id="${p.id}" class="archiveBtn">Archive</button>
+    <div class="card"; style="border-left: 4px solid var(--accent)">
+      <strong>${p.name}</strong>
+      <div style="font-size: 13px; margin: 8px 0;">
+        Priority: <input type="number" min="1" max="5" value="${p.priority}" data-id="${p.id}" class="priority-input" style="width:50px; display:inline"/>
+        | Status: ${p.status}
+      </div>
+      <div style="display:flex; gap:5px">
+        <button data-id="${p.id}" data-action="archive" class="secondary" style="padding:4px 8px">Archive</button>
+        <button data-id="${p.id}" data-action="delete" class="secondary" style="padding:4px 8px; color:var(--color-danger)">Delete</button>
+      </div>    
     </div>
   `).join("");
-
-  attachManagerEvents();
 }
 
-function attachManagerEvents() {
-  document.querySelectorAll(".priorityInput").forEach(input => {
-    input.addEventListener("change", async () => {
-      const playlist = currentPlaylists.find(p => p.id === input.dataset.id);
-      if (!playlist) return;
-      await updatePlaylist(input.dataset.id, { priority: Number(input.value) });
-    });
-  });
+/* --- Event Delegation (The "Clean" Way) --- */
 
-  document.querySelectorAll(".useBtn").forEach(btn => {
-    btn.addEventListener("click", () => markAsUsed(btn.dataset.id));
-  });
+function setupEventListeners() {
+  // Plan Actions (Use/Swap)
+  document.getElementById("dailyPlan")?.addEventListener("click", handlePlanActions);
 
-  document.querySelectorAll(".swapBtn").forEach((btn, index) => {
-    btn.addEventListener("click", () => swapPlaylist(index));
-  });
+  // Manager Actions (Delete/Archive)
+  document.getElementById("playlistManager")?.addEventListener("click", handleManagerActions);
+  document.getElementById("playlistManager")?.addEventListener("change", handlePriorityChange);
 
-  document.querySelectorAll(".deleteBtn").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      if (confirm("Are you sure you want to delete this playlist?")) {
-        await deletePlaylist(btn.dataset.id);
-      }
-    });
-  });
-
-  document.querySelectorAll(".archiveBtn").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      await updatePlaylist(btn.dataset.id, { status: "archived" });
-    });
-  });
+  // Regenerate
+  document.getElementById("regenBtn")?.addEventListener("click", handleRegenerate);
 }
 
-/* ===============================
-   RENDER DAILY PLAN
-================================ */
-function renderDailyPlan(plan) {
-  const container = document.getElementById("dailyPlan");
-  if (!container) return;
+async function handlePlanActions(e) {
+  const btn = e.target.closest("button");
+  if (!btn) return;
 
-  container.innerHTML = plan.map((block, index) => {
-    const playlist = currentPlaylists.find(p => p.id === block.playlist);
-    return `
-      <div class="card">
-        <h4>${block.label} (${block.context})</h4>
-        <p>${playlist ? playlist.name : "No playlist available"}</p>
-        ${playlist ? `
-          <button class="primary" data-id="${playlist.id}" data-action="use">Mark as Used</button>
-          <button class="secondary" data-index="${index}" data-action="swap">Swap</button>
-        ` : ""}
-      </div>
-    `;
-  }).join("");
-
-  container.querySelectorAll("button").forEach(btn => {
-    const action = btn.dataset.action;
-    if (!action) return;
-
-    btn.addEventListener("click", () => {
-      if (action === "use") markAsUsed(btn.dataset.id);
-      if (action === "swap") swapPlaylist(Number(btn.dataset.index));
-    });
-  });
+  const { action, id, index } = btn.dataset;
+  if (action === "use") markAsUsed(id);
+  if (action === "swap") swapPlaylist(Number(index));
 }
 
-document.getElementById("regenBtn")
-  .addEventListener("click", async () => {
-    if (!confirm("Generate a new daily plan?")) return;
-    
-    const todayKey = getTodayKey();
+async function handleManagerActions(e) {
+  const btn = e.target.closest("button");
+  if (!btn) return;
 
-    setPlanButtonsDisabled(true);
-    rotateRegenIcon(true);
-
-    // 1️⃣ Store previous plan
-    const previousPlan = [...window.currentDailyPlanBlocks];
-    lastPlanSnapshot = previousPlan;
-
-    // 2️⃣ Generate new plan
-    updateStatuses(currentPlaylists);
-    const newPlan = generateDailyPlan(currentPlaylists);
-
-    // 3️⃣ Optimistic render (instant UI update)
-    renderDailyPlan(newPlan);
-    window.currentDailyPlanBlocks = newPlan;
-
-    // 4️⃣ Show undo toast
-    showUndoToast(todayKey);
-
-    // 5️⃣ Write to Firestore (background)
-    await updateDailyPlan(todayKey, newPlan);
-
-    rotateRegenIcon(false);
-    setPlanButtonsDisabled(false);
-  });
-/* ===============================
-   CLEANING
-================================ */
-function renderCleaning(playlists) {
-  const container = document.getElementById("cleaningList");
-  if (!container) return;
-
-  const today = new Date();
-  const neglected = playlists.filter(p => {
-    const lastUsed = new Date(p.lastUsed);
-    const daysSince = (today - lastUsed) / (1000 * 60 * 60 * 24);
-    return daysSince > 45;
-  });
-
-  container.innerHTML = neglected.length
-    ? neglected.map(p => `<p>${p.name}</p>`).join("")
-    : "<p>No playlists need cleaning 🎉</p>";
+  const { action, id } = btn.dataset;
+  if (action === "delete" && confirm("Delete this playlist?")) await deletePlaylist(id);
+  if (action === "archive") await updatePlaylist(id, { status: "archived" });
 }
 
-/* ===============================
-   ACTIONS
-================================ */
-export async function markAsUsed(id) {
-  const playlist = currentPlaylists.find(p => p.id === id);
-  if (!playlist) return;
-
-  await updatePlaylist(id, { lastUsed: new Date() });
-  alert(`${playlist.name} marked as used today.`);
-}
-
-export async function swapPlaylist(blockIndex) {
-  if (!currentPlan || !currentPlan.length) return;
-
-  const block = currentPlan[blockIndex];
-  if (!block) return;
-
-  const usedIds = new Set(currentPlan.map(b => b.playlist));
-
-  const alternatives = currentPlaylists
-    .filter(p => p.contexts.includes(block.context) && p.status === "active" && !usedIds.has(p.id))
-    .map(p => ({ ...p, score: calculateScore(p) }))
-    .sort((a, b) => b.score - a.score);
-
-  if (!alternatives.length) {
-    alert("No alternative available.");
-    return;
+async function handlePriorityChange(e) {
+  if (e.target.classList.contains("priority-input")) {
+    await updatePlaylist(e.target.dataset.id, { priority: Number(e.target.value) });
   }
-
-  const updatedPlan = [...currentPlan];
-  updatedPlan[blockIndex] = { ...block, playlist: alternatives[0].id };
-  await updateDailyPlan(getTodayKey(), updatedPlan);
 }
-/* ===============================
-   UTILITY HELPERS
-================================ */
-function setPlanButtonsDisabled(disabled) {
-  const regenBtn = document.getElementById("regenBtn");
 
-  if (!regenBtn) return;
+/* --- Core Actions --- */
 
-  regenBtn.disabled = disabled;
-  regenBtn.classList.toggle("disabled", disabled);
+async function handleRegenerate() {
+  const todayKey = getTodayKey();
+  
+  toggleLoading(true);
+  
+  lastPlanSnapshot = [...currentPlan]; // For undo
+  const newPlan = generateDailyPlan(currentPlaylists);
+  
+  await updateDailyPlan(todayKey, newPlan);
+  showUndoToast(todayKey);
+  
+  toggleLoading(false);
+}
+
+function toggleLoading(isLoading) {
+  const btn = document.getElementById("regenBtn");
+  const icon = document.getElementById("regenIcon");
+  if (btn) btn.disabled = isLoading;
+  if (icon) icon.classList.toggle("rotate", isLoading);
 }
 
 function showUndoToast(todayKey) {
   const container = document.getElementById("toastContainer");
   if (!container) return;
 
+  // Clear existing toasts/timeouts
+  if (undoTimeout) clearTimeout(undoTimeout);
+  container.innerHTML = "";
+
   const toast = document.createElement("div");
   toast.className = "toast undo-toast";
-
   toast.innerHTML = `
     <div class="toast-content">
-      <span>New plan generated.</span>
+      <span>Plan updated</span>
       <button class="undo-btn">Undo</button>
     </div>
     <div class="toast-progress"></div>
@@ -292,34 +237,40 @@ function showUndoToast(todayKey) {
 
   container.appendChild(toast);
 
-  const undoBtn = toast.querySelector(".undo-btn");
-  const progressBar = toast.querySelector(".toast-progress");
-
-  // Start shrinking animation
-  progressBar.style.animation = "shrinkBar 10s linear forwards";
-
-  undoBtn.addEventListener("click", async () => {
-    if (!lastPlanSnapshot) return;
-
-    clearTimeout(undoTimeout);
-
-    renderDailyPlan(lastPlanSnapshot);
-    window.currentDailyPlanBlocks = lastPlanSnapshot;
-
-    await updateDailyPlan(todayKey, lastPlanSnapshot);
-
-    toast.remove();
-  });
+  toast.querySelector(".undo-btn").onclick = async () => {
+    if (lastPlanSnapshot) {
+      await updateDailyPlan(todayKey, lastPlanSnapshot);
+      toast.remove();
+    }
+  };
 
   undoTimeout = setTimeout(() => {
     toast.remove();
     lastPlanSnapshot = null;
-  }, 10000);
+  }, 8000);
 }
 
-function rotateRegenIcon(shouldRotate) {
-  const icon = document.getElementById("regenIcon");
-  if (!icon) return;
+function renderCleaning(playlists) {
+  const container = document.getElementById("cleaningList");
+  if (!container) return;
 
-  icon.classList.toggle("rotate", shouldRotate);
+  const today = new Date();
+  const neglected = playlists.filter(p => {
+    if (!p.lastUsed) return true;
+    const lastUsed = new Date(p.lastUsed);
+    const daysSince = (today - lastUsed) / (1000 * 60 * 60 * 24);
+    return daysSince > 45;
+  });
+
+  if (neglected.length === 0) {
+    container.innerHTML = `<p class="text-muted">No playlists need cleaning 🎉</p>`;
+    return;
+  }
+
+  container.innerHTML = neglected.map(p => `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 8px; background: rgba(255,255,255,0.03); border-radius: var(--radius);">
+      <span>${p.name}</span>
+      <button class="secondary" data-id="${p.id}" data-action="archive" style="padding: 4px 8px; font-size: 12px;">Archive</button>
+    </div>
+  `).join("");
 }

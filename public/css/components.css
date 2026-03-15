@@ -1,64 +1,73 @@
-.card {
-    background: var(--bg-card);
+/* --- UI Components --- */
+.card, .section{
     border-radius: var(--radius);
     padding: var(--space);
     margin-bottom: var(--space);
     width: 100%;
 }
 
+.card { background: var(--bg-card); }
+.section { background: var(--bg-section); }
+
+/* Buttons & Inputs */
+button, input, select {
+    font-family: inherit;
+    border-radius: var(--radius);
+    transition: filter var(--transition), opacity var(--transition);
+}
+
+button {
+    padding: 8px 14px;
+    cursor: pointer;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+button:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
 button.primary {
     background: var(--accent);
     color: var(--text-main);
-    border: none;
-    border-radius: var(--radius);
-    padding: 8px 14px;
-    cursor: pointer;
 }
 
 button.secondary {
     background: var(--bg-main);
     color: var(--text-main);
     border: 1px solid var(--accent);
-    border-radius: var(--radius);
-    padding: 8px 14px;
-    cursor: pointer;
+}
+
+button:disabled, .button.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+    cursor: not-allowed;
 }
 
 input, select {
     margin: 6px 0 12px 0;
-    padding: 6px;
-    border-radius: var(--radius);
-    border: 1px solid #555;
-    background: #1e293b;
+    padding: 8px;
+    border: 1px solid var(--accent);
+    background: var(--bg-main);
     color: var(--text-main);
     width: 100%;
+    outline: none;
 }
 
+input:focus {
+    box-shadow: 0 0 0 2px rgba(188, 137, 9, 0.3); /* Uses your --accent color */
+}
+
+/* --- Feedback --- */
 .loader {
   width: 20px;
   height: 20px;
   border: 3px solid rgba(255,255,255,0.2);
-  border-top: 3px solid white;
+  border-top-color: #fff;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
-  margin: 10px auto;
-}
-
-.hidden {
-  display: none;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.plan-refresh {
-  animation: fadeRefresh 0.25s ease;
-}
-
-@keyframes fadeRefresh {
-  from { opacity: 0.4; transform: scale(0.98); }
-  to { opacity: 1; transform: scale(1); }
 }
 
 .toast-container {
@@ -68,18 +77,60 @@ input, select {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  z-index: 999;
+  z-index: 1000;
 }
 
 .toast {
   background: #1e1e1e;
-  color: white;
+  color: #fff;
   padding: 10px 16px;
-  border-radius: 8px;
+  border-radius: var(--radius);
   font-size: 14px;
-  opacity: 0;
-  transform: translateY(10px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 200px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   animation: toastIn 0.25s ease forwards;
+}
+
+/* Progress bar for Undo Toast */
+.toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #4da6ff, #6f86ff);
+  animation: shrinkBar 5s linear forwards; /* Matches your JS timeout */
+}
+
+/* --- Navigation --- */
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.tab {
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  border: none;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.tab.active {
+  background: var(--accent);
+  color: var(--text-main);
+}
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* --- Animations --- */
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 @keyframes toastIn {
@@ -89,61 +140,9 @@ input, select {
   }
 }
 
-.rotate {
-  animation: spin 0.6s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-button.disabled {
-  opacity: 0.6;
-  pointer-events: none;
-}
-
-.last-regen {
-  font-size: 12px;
-  opacity: 0.6;
-  margin-top: 6px;
-}
-
-.undo-btn {
-  margin-left: 10px;
-  background: transparent;
-  border: none;
-  color: #4da6ff;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.undo-btn:hover {
-  text-decoration: underline;
-}
-
-.undo-toast {
-  position: relative;
-  overflow: hidden;
-  padding-bottom: 8px;
-}
-
-.toast-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.toast-progress {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  height: 3px;
-  width: 100%;
-  background: linear-gradient(90deg, #4da6ff, #6f86ff);
-}
-
 @keyframes shrinkBar {
   from { width: 100%; }
   to { width: 0%; }
 }
+
+.hidden { display: none !important; }
