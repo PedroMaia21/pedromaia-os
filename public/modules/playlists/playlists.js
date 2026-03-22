@@ -175,8 +175,13 @@ async function handlePlanActions(e) {
   if (!btn) return;
 
   const { action, id, index } = btn.dataset;
-  if (action === "use") markAsUsed(id);
-  if (action === "swap") swapPlaylist(Number(index));
+  if (action === "use") {
+    await markAsUsed(id, btn);  
+  }
+
+  if (action === "swap") {
+    await swapPlaylist(Number(index));
+  }
 }
 
 async function handleManagerActions(e) {
@@ -195,6 +200,41 @@ async function handlePriorityChange(e) {
 }
 
 /* --- Core Actions --- */
+export async function markAsUsed(id, btnElement) {
+  const playlist = currentPlaylists.find(p => p.id === id);
+  if (!playlist) return;
+
+  // 1. Visual Feedback: Start
+  const originalText = btnElement.innerHTML;
+  const card = btnElement.closest(".card");
+
+  btnElement.disabled = true;
+  btnElement.innerHTML = "Updating..."
+  if (card) card.style.boxShadow = "0 0 15px var(--accent)";
+
+  try {
+    // 2. Update Database
+    await updatePlaylist(id, {
+      lastUsed: new Date().toISOString(),
+      status: "active"
+    });
+
+    // 3. Visual Feedback: Success
+    btnElement.innerHTML = "Done! ✅"
+    btnElement.style.background = "var(--color-success)";
+
+    // Reset card glow after a second
+    setTimeout(() => {
+      if (card) card.style.boxShadow = "";
+    }, 1000);
+  } catch (error) {
+    console.error("Failed to mark as used:", error);
+    btnElement.disabled = false;
+    btnElement.innerHTML = originalText;
+    alert("Falied to update. Check your connection.")
+  }
+}
+
 
 async function handleRegenerate() {
   const todayKey = getTodayKey();
