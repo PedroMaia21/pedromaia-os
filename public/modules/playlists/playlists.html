@@ -12,7 +12,7 @@
 
   <section id="tab-daily" class="tab-panel active" role="tabpanel">
     <div class="daily-plan-controls">
-      <button id="regenBtn" class="secondary">
+      <button id="regenBtn" class="btn-secondary">
         <span id="regenIcon" class="icon">⟳</span> 
         <span>Regenerate</span>
       </button>
@@ -28,7 +28,26 @@
   <section id="tab-playlists" class="tab-panel" role="tabpanel">
     <div class="section">
         <h3>➕ Add Playlist</h3>
-        <div id="addPlaylistForm"></div>
+        <div id="addPlaylistForm">
+          <div class="card">
+            <input type="text" id="newName" placeholder="Playlist name" />
+            
+            <div style="margin: 10px 0;">
+              <label>Priority (1–5)</label>
+              <input type="number" id="newPriority" min="1" max="5" value="3" style="width: 60px; margin-left: 10px;"/>
+            </div>
+
+            <div class="context-chips" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;">
+              <label><input type="checkbox" value="Gym" /> Gym</label>
+              <label><input type="checkbox" value="Work" /> Work</label>
+              <label><input type="checkbox" value="Driving" /> Driving</label>
+              <label><input type="checkbox" value="Relax" /> Relax</label>
+              <label><input type="checkbox" value="Free" /> Free</label>
+            </div>
+            
+            <button id="addPlaylistBtn" class="btn-primary">Add Playlist</button>
+          </div>
+        </div>
     </div>
 
     <div class="section">

@@ -33,7 +33,7 @@ The project follows a modular structure:
 │
 └── modules/
     ├── playlists/
-    │   ├── playlists.js
+    │   ├── playlists.html
     │   ├── playlists.engine.js
     │   ├── playlists.service.js
     │   └── playlists.js

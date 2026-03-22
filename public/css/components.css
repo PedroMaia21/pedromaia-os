@@ -13,7 +13,7 @@
 button, input, select {
     font-family: inherit;
     border-radius: var(--radius);
-    transition: filter var(--transition), opacity var(--transition);
+    transition: filter var(--transition), opacity var(--transition), transform 0.1s ease, box-shadow var(--transition);
 }
 
 button {
@@ -23,24 +23,30 @@ button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 8px;
 }
 
 button:active:not(:disabled) {
     transform: scale(0.98);
 }
 
-button.primary {
+.btn-primary {
     background: var(--accent);
     color: var(--text-main);
 }
 
-button.secondary {
+.btn-secondary {
     background: var(--bg-main);
     color: var(--text-main);
     border: 1px solid var(--accent);
 }
 
-button:disabled, .button.disabled {
+.btn-success{
+  background-color: var(--color-successful);
+  color: #fff;
+}
+
+button:disabled, .btn-disabled {
     opacity: 0.5;
     pointer-events: none;
     cursor: not-allowed;
@@ -57,10 +63,10 @@ input, select {
 }
 
 input:focus {
-    box-shadow: 0 0 0 2px rgba(188, 137, 9, 0.3); /* Uses your --accent color */
+    box-shadow: 0 0 0 2px rgba(188, 137, 9, 0.3);
 }
 
-/* --- Feedback --- */
+/* --- Feedback & Toasts --- */
 .loader {
   width: 20px;
   height: 20px;
@@ -83,7 +89,7 @@ input:focus {
 .toast {
   background: #1e1e1e;
   color: #fff;
-  padding: 10px 16px;
+  padding: 12px 16px;
   border-radius: var(--radius);
   font-size: 14px;
   display: flex;
@@ -91,17 +97,19 @@ input:focus {
   justify-content: space-between;
   min-width: 200px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
   animation: toastIn 0.25s ease forwards;
 }
 
-/* Progress bar for Undo Toast */
 .toast-progress {
   position: absolute;
   bottom: 0;
   left: 0;
   height: 3px;
+  width: 100%;
   background: linear-gradient(90deg, #4da6ff, #6f86ff);
-  animation: shrinkBar 5s linear forwards; /* Matches your JS timeout */
+  transform-origin: left;
+  animation: shrinkBar 5s linear forwards;
 }
 
 /* --- Navigation --- */
@@ -118,6 +126,7 @@ input:focus {
   background: var(--bg-card);
   color: var(--text-muted);
   cursor: pointer;
+  transition: background var(--transition);
 }
 
 .tab.active {
@@ -134,15 +143,13 @@ input:focus {
 }
 
 @keyframes toastIn {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from {opacity: 0; transform: translateY(10px);}
+  to {opacity: 1; transform: translateY(0);}
 }
 
 @keyframes shrinkBar {
-  from { width: 100%; }
-  to { width: 0%; }
+  from {transform: scaleX(1); }
+  to { transform: scaleX(0); }
 }
 
 .hidden { display: none !important; }
