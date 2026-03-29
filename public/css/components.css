@@ -9,6 +9,76 @@
 .card { background: var(--bg-card); }
 .section { background: var(--bg-section); }
 
+.review-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--space);
+    margin-top: var(--space);
+}
+
+.review-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 1.2rem;
+    border: 1px solid rgba(188, 137, 9, 0.15);
+}
+
+.review-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    border-color: var(--accent);
+}
+
+.review-actions {
+    margin-top: 1rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* 2x2 grid for actions */
+    gap: 8px;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 0.5rem;
+}
+
+.text-muted {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.divider {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    margin: 2rem 0;
+}
+
+.tag {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-right: 4px;
+    text-transform: uppercase;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.badge {
+    background: var(--bg-main);
+    color: var(--accent);
+    font-weight: bold;
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--accent);
+    margin-right: 8px;
+}
+
 /* Buttons & Inputs */
 button, input, select {
     font-family: inherit;
@@ -42,8 +112,18 @@ button:active:not(:disabled) {
 }
 
 .btn-success{
-  background-color: var(--color-successful);
+  background-color: var(--color-success);
   color: #fff;
+}
+
+.btn-sm {
+    padding: 6px 10px;
+    font-size: 0.85rem;
+}
+
+.btn-info {
+    background-color: #3b82f6;
+    color: white;
 }
 
 button:disabled, .btn-disabled {

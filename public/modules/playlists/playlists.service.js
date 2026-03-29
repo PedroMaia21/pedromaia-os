@@ -93,3 +93,46 @@ export async function regenerateDailyPlan(dateKey, generatorFn) {
    const newBlocks = await generatorFn();
    await updateDailyPlan(dateKey, newBlocks);
 }
+
+/* ===============================
+   RANDOM REVIEW LOGIC
+================================ */
+
+/* ===============================
+   RANDOM REVIEW & MAINTENANCE
+================================ */
+
+// Fetch all for local randomization (Efficient for < 500 docs)
+export async function getAllPlaylists() {
+  const colRef = await playlistsRef();
+  const { getDocs } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+  const snapshot = await getDocs(colRef);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+export async function getRandomPlaylists(count = 3) {
+  const playlists = await getAllPlaylists();
+  if (!playlists.length) return [];
+
+  // Fisher-Yates Shuffle
+  for (let i = playlists.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [playlists[i], playlists[j]] = [playlists[j], playlists[i]];
+  }
+  return playlists.slice(0, count);
+}
+
+export async function markAsReviewed(id) {
+  const uRef = await userRef();
+  await updateDoc(doc(uRef, "playlists", id), {
+    lastReviewed: Timestamp.now(),
+    status: "active" // Ensures it stays in rotation
+  });
+}
+
+// Helper needed for the counter (optional but nice)
+async function getPlaylistById(id) {
+  const uRef = await userRef();
+  const snap = await getDoc(doc(uRef, "playlists", id));
+  return snap.exists() ? snap.data() : {};
+}

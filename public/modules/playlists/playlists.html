@@ -57,9 +57,25 @@
   </section>
 
   <section id="tab-maintenance" class="tab-panel" role="tabpanel">
+    <div class="section review-module">
+      <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3>🎲 Random Review</h3>
+        <button id="refreshRandomBtn" class="btn-secondary btn-sm">
+          <span class="icon">⟳</span> New Set
+        </button>
+      </div>
+      <p class="text-muted">Review these 3 playlists to keep your library healthy.</p>
+      
+      <div id="randomReviewContainer" class="card-grid review-grid">
+        <p class="text-muted">Loading review set...</p>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
     <div class="section">
-        <h3>🧹 Needs Cleaning</h3>
-        <div id="cleaningList"></div>
+      <h3>🧹 Dormant Playlists</h3>
+      <div id="cleaningList"></div>
     </div>
   </section>
 

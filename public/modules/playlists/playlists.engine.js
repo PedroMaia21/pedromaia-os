@@ -1,3 +1,21 @@
+import { getRandomPlaylists } from "./playlists.service.js";
+
+/* ===============================
+   RANDOM REVIEW LOGIC
+================================ */
+export async function loadRandomReviewSet() {
+    const playlists = await getRandomPlaylists(3);
+
+    return playlists.map(p => ({
+        id: p.id,
+        name: p.name,
+        reviewStatus: "pending"
+    }));
+}
+
+/* ===============================
+   UTILS
+================================ */
 export function getTodayKey() {
   return new Date().toISOString().split("T")[0];
 }
@@ -31,7 +49,10 @@ export function calculateScore(p) {
   return (p.priority * 2) + daysSince - recentPenalty;
 }
 
-export function generateDailyPlan(playlists) {  
+/* ===============================
+   GENERATOR
+================================ */
+export async function generateDailyPlan(playlists) {  
   const usedToday = new Set();
   const isWeekend = [0, 6].includes(new Date().getDay());
 
@@ -43,8 +64,9 @@ export function generateDailyPlan(playlists) {
     { label: "Night", context: "Relax" },
     { label: "Late Night", context: "Free" }
   ];
-
-  return timeBlocks.map(block => {
+  
+  // 1. Generate the standard context-based blocks
+  const blocks = timeBlocks.map(block => {
     let candidates = playlists
       .filter(p =>
         p.contexts?.some(c =>
@@ -82,4 +104,22 @@ export function generateDailyPlan(playlists) {
 
     return { ...block, playlist: selected.id };
   });
+  
+  const reviewPlaylists = await getRandomPlaylists(3);
+  const reviewItems = reviewPlaylists.map(p => ({
+    id: p.id,
+    name: p.name,
+    priority: p.priority,
+    contexts: p.contexts || [],
+    status: p.status
+  }));
+
+  // Append the review block with full data so it's saved in the DB
+  blocks.push({
+    label: "Daily Review",
+    type: "review_block",
+    items: reviewItems
+  });
+
+  return blocks;
 }

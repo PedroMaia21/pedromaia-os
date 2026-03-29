@@ -6,12 +6,14 @@ import {
   getOrCreateDailyPlan,
   subscribeToDailyPlan,
   updateDailyPlan,
+  markAsReviewed,
 } from "./playlists.service.js";
 
 import {
   generateDailyPlan,
   updateStatuses,
-  getTodayKey
+  getTodayKey,
+  loadRandomReviewSet
 } from "./playlists.engine.js";
 
 let currentPlaylists = [];
@@ -19,6 +21,7 @@ let currentPlan = [];
 let lastPlanSnapshot = null;
 let undoTimeout = null;
 let editingPlaylistId = null;
+let currentReviewSet = [];
 
 /* ===============================
    INIT
@@ -46,6 +49,43 @@ export async function init() {
   
   setupEventListeners();
   initPlaylistTabs();
+}
+
+/* ===============================
+   REVIEW RENDER & ACTIONS
+================================ */
+
+async function handleRefreshReview() {
+    const container = document.getElementById("randomReviewContainer");
+    if (container) container.innerHTML = "<div class='loader'></div>";
+    
+    currentReviewSet = await loadRandomReviewSet();
+    renderRandomReview(currentReviewSet);
+}
+
+function renderRandomReview(reviewSet) {
+    const container = document.getElementById("randomReviewContainer");
+    if (!container) return;
+
+    if (reviewSet.length === 0) {
+        container.innerHTML = "<p class='text-muted'>No playlists available for review.</p>";
+        return;
+    }
+
+    container.innerHTML = reviewSet.map(p => `
+        <div class="card review-card" data-id="${p.id}">
+            <div style="margin-bottom: 10px;">
+                <strong style="display:block; font-size: 1.1em;">${p.name}</strong>
+                <small class="text-muted">ID: ${p.id.substring(0,8)}...</small>
+            </div>
+            <div class="review-actions" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <button class="btn-primary btn-sm" data-id="${p.id}" data-action="review-ok">✅ OK</button>
+                <button class="btn-secondary btn-sm" data-id="${p.id}" data-action="edit">✏️ Edit</button>
+                <button class="btn-secondary btn-sm" data-id="${p.id}" data-action="review-merge">🔗 Merge</button>
+                <button class="btn-secondary btn-sm" data-id="${p.id}" data-action="delete" style="color:var(--color-danger)">🗑️</button>
+            </div>
+        </div>
+    `).join("");
 }
 
 /* --- UI Logic --- */
@@ -77,12 +117,43 @@ function initPlaylistTabs() {
 
 function renderDailyPlan(plan) {
   const container = document.getElementById("dailyPlan");
-  if (!container) return;
+  if (!container || !plan) return;
 
   //const todayKey = new Date().toISOString().split('T')[0];
 
   container.innerHTML = plan.map((block, index) => {
-    const playlist = currentPlaylists.find(p => p.id === block.playlist);
+    // Inside renderDailyPlan loop:
+    if (block.type === "review_block") {
+      return `
+        <div class="section review-module">
+          <div class="section-header">
+            <h3>🎲 Random Review (Today's Trio)</h3>
+          </div>
+          <div class="review-grid">
+            ${block.items.map(p => `
+              <div class="card review-card">
+                <div>
+                  <strong style="font-size: 1.1rem; display: block; margin-bottom: 4px;">${p.name}</strong>
+                  <div style="margin-bottom: 8px;">
+                    <span class="badge">⭐ P${p.priority}</span>
+                    ${p.contexts.map(c => `<span class="tag">${c}</span>`).join("")}
+                  </div>
+                </div>
+                <div class="review-actions">
+                  <button class="btn-success btn-sm" data-id="${p.id}" data-action="review-ok">✅ OK</button>
+                  <button class="btn-secondary btn-sm" data-id="${p.id}" data-action="edit">✏️ Edit</button>
+                  <button class="btn-secondary btn-sm" data-id="${p.id}" data-action="review-merge">🔗 Merge</button>
+                  <button class="btn-secondary btn-sm" data-id="${p.id}" data-action="delete" style="color:var(--color-danger)">🗑️</button>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    const playlistId = block.playlistId || block.playlist; // Handle both naming conventions
+    const playlist = currentPlaylists.find(p => p.id === playlistId);
     const used = playlist ? isUsedToday(playlist.lastUsed) : false;
 
     return `
@@ -162,6 +233,8 @@ function setupEventListeners() {
   document.getElementById("dailyPlan")?.addEventListener("click", handlePlanActions);
   document.getElementById("playlistManager")?.addEventListener("click", handleManagerActions);
   document.getElementById("regenBtn")?.addEventListener("click", handleRegenerate);
+  document.getElementById("randomReviewContainer")?.addEventListener("click", handleReviewActions);
+  document.getElementById("refreshRandomBtn")?.addEventListener("click", handleRefreshReview);
 
   // Form for Adding New Playlist
   document.getElementById("addPlaylistBtn")?.addEventListener("click", async () => {
@@ -215,6 +288,27 @@ async function handleManagerActions(e) {
   } else if (action === "archive") {
     await updatePlaylist(id, { status: "archived" });
   }
+}
+
+async function handleReviewActions(e) {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+
+    const { action, id } = btn.dataset;
+
+    if (action === "review-ok") {
+        await markAsReviewed(id);
+        // Remove from local view immediately for better UX
+        currentReviewSet = currentReviewSet.filter(p => p.id !== id);
+        renderRandomReview(currentReviewSet);
+        
+        // If all 3 are done, auto-refresh
+        if (currentReviewSet.length === 0) handleRefreshReview();
+        
+    } else if (action === "review-merge") {
+        const targetName = prompt("Enter the name of the playlist to merge THIS one INTO:");
+        if (targetName) alert(`Logic: Search for "${targetName}", move items, then delete ${id}`);
+    } 
 }
 
 /* --- Core Logic Actions --- */
