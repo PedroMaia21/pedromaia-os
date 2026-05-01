@@ -45,6 +45,7 @@ export async function init() {
   await subscribeToDailyPlan(todayKey, (blocks) => {
     currentPlan = blocks;
     renderDailyPlan(blocks);
+    renderMaintenanceTab(blocks);
   });
   
   setupEventListeners();
@@ -115,49 +116,21 @@ function initPlaylistTabs() {
     RENDER FUNCTIONS
 ================================ */
 
+// playlists.js
 function renderDailyPlan(plan) {
   const container = document.getElementById("dailyPlan");
   if (!container || !plan) return;
 
-  //const todayKey = new Date().toISOString().split('T')[0];
+  // FILTER: Exclude the maintenance/review block from this specific view
+  const scheduleBlocks = plan.filter(block => block.type !== "review_block");
 
-  container.innerHTML = plan.map((block, index) => {
-    // Inside renderDailyPlan loop:
-    if (block.type === "review_block") {
-      return `
-        <div class="section review-module">
-          <div class="section-header">
-            <h3>🎲 Random Review (Today's Trio)</h3>
-          </div>
-          <div class="review-grid">
-            ${block.items.map(p => `
-              <div class="card review-card">
-                <div>
-                  <strong style="font-size: 1.1rem; display: block; margin-bottom: 4px;">${p.name}</strong>
-                  <div style="margin-bottom: 8px;">
-                    <span class="badge">⭐ P${p.priority}</span>
-                    ${p.contexts.map(c => `<span class="tag">${c}</span>`).join("")}
-                  </div>
-                </div>
-                <div class="review-actions">
-                  <button class="btn-success btn-sm" data-id="${p.id}" data-action="review-ok">✅ OK</button>
-                  <button class="btn-secondary btn-sm" data-id="${p.id}" data-action="edit">✏️ Edit</button>
-                  <button class="btn-secondary btn-sm" data-id="${p.id}" data-action="review-merge">🔗 Merge</button>
-                  <button class="btn-secondary btn-sm" data-id="${p.id}" data-action="delete" style="color:var(--color-danger)">🗑️</button>
-                </div>
-              </div>
-            `).join("")}
-          </div>
-        </div>
-      `;
-    }
-
-    const playlistId = block.playlistId || block.playlist; // Handle both naming conventions
+  container.innerHTML = scheduleBlocks.map((block, index) => {
+    const playlistId = block.playlistId || block.playlist;
     const playlist = currentPlaylists.find(p => p.id === playlistId);
     const used = playlist ? isUsedToday(playlist.lastUsed) : false;
 
     return `
-      <div class="card" style="${used ? 'border-left 4px solid var(--color-success); opacity: 0.8;' : ''}">
+      <div class="card" style="${used ? 'border-left: 4px solid var(--color-success); opacity: 0.8;' : ''}">
         <h4>${block.label} <small style="color:var(--text-muted)">(${block.context})</small></h4>
         <p><strong>${playlist ? playlist.name : "Silence"}</strong></p>
         <div style="display:flex; gap:8px">
@@ -167,6 +140,38 @@ function renderDailyPlan(plan) {
       </div>
     `;
   }).join("");
+}
+
+// playlists.js
+function renderMaintenanceTab(plan) {
+  const container = document.getElementById("randomReviewContainer");
+  if (!container || !plan) return;
+
+  // FIND: Grab the specific review block from the saved daily plan
+  const reviewBlock = plan.find(block => block.type === "review_block");
+
+  if (!reviewBlock || !reviewBlock.items || reviewBlock.items.length === 0) {
+    container.innerHTML = `<p class="text-muted">No review set generated for today. Hit regenerate to create one.</p>`;
+    return;
+  }
+
+  container.innerHTML = reviewBlock.items.map(p => `
+    <div class="card review-card" style="border-top: 3px solid var(--accent);">
+      <div style="margin-bottom: 12px;">
+        <strong style="font-size: 1.1rem; display: block; margin-bottom: 4px;">${p.name}</strong>
+        <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+          <span class="badge">⭐ P${p.priority}</span>
+          ${(p.contexts || []).map(c => `<span class="tag">${c}</span>`).join("")}
+        </div>
+      </div>
+      <div class="review-actions" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <button class="btn-success btn-sm" data-id="${p.id}" data-action="review-ok">✅ OK</button>
+        <button class="btn-secondary btn-sm" data-id="${p.id}" data-action="edit">✏️ Edit</button>
+        <button class="btn-secondary btn-sm" data-id="${p.id}" data-action="review-merge">🔗 Merge</button>
+        <button class="btn-secondary btn-sm" data-id="${p.id}" data-action="delete" style="color:var(--color-danger)">🗑️</button>
+      </div>
+    </div>
+  `).join("");
 }
 
 function renderPlaylistManager(playlists) {
@@ -332,7 +337,7 @@ async function handleRegenerate() {
   const todayKey = getTodayKey();
     
   lastPlanSnapshot = [...currentPlan]; // For undo
-  const newPlan = generateDailyPlan(currentPlaylists);
+  const newPlan = await generateDailyPlan(currentPlaylists);
   
   await updateDailyPlan(todayKey, newPlan);
   showUndoToast(todayKey);  
