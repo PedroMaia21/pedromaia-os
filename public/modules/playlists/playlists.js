@@ -59,7 +59,7 @@ function showContextSelectionModal(blockLabel, currentContext, onConfirm) {
     <option value="${ctx}" ${ctx === currentContext ? "selected" : ""}>${ctx}</option>
   `).join("");
 
-  modal.style.display = "flex";
+  modal.classList.remove("hidden");
 
   const handleConfirm = () => {
     const selectedContext = dropdown.value;
@@ -70,7 +70,7 @@ function showContextSelectionModal(blockLabel, currentContext, onConfirm) {
   };
 
   const closeContextModal = () => {
-    modal.style.display = "none";
+    modal.classList.add("hidden");
     confirmBtn.removeEventListener("click", handleConfirm);
     cancelBtn.removeEventListener("click", closeContextModal);
     modal.removeEventListener("click", handleBackdropClick);
