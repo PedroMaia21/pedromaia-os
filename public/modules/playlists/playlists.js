@@ -6,14 +6,26 @@ import {
   getOrCreateDailyPlan,
   subscribeToDailyPlan,
   updateDailyPlan,
+  createDailyPlan,
+  generateDailyPlanPayload,
+  overrideBlockContext,
+  markBlockUsed,
   markAsReviewed,
+  getPlannedOverride,
+  setPlannedOverride,
+  resetPlannedOverride,
 } from "./playlists.service.js";
 
 import {
-  generateDailyPlan,
   updateStatuses,
   getTodayKey,
-  loadRandomReviewSet
+  loadRandomReviewSet,
+  ContextType,
+  getDefaultTemplate,
+  getDefaultContextsForDate,
+  getBlockLabel,
+  getAllBlockKeys,
+  DEFAULT_BLOCKS
 } from "./playlists.engine.js";
 
 let currentPlaylists = [];
@@ -22,12 +34,68 @@ let lastPlanSnapshot = null;
 let undoTimeout = null;
 let editingPlaylistId = null;
 let currentReviewSet = [];
+let pendingSwapData = null;
+
+/* ===============================
+   CONTEXT SELECTION MODAL
+================================ */
+function showContextSelectionModal(blockLabel, currentContext, onConfirm) {
+  const modal = document.getElementById("contextSelectionModal");
+  const title = document.getElementById("contextSelectionTitle");
+  const label = document.getElementById("contextSelectionLabel");
+  const dropdown = document.getElementById("contextSelectionDropdown");
+  const confirmBtn = document.getElementById("contextSelectionConfirm");
+  const cancelBtn = document.getElementById("contextSelectionCancel");
+
+  if (!modal) {
+    console.warn("Context selection modal not found in DOM");
+    return;
+  }
+
+  title.textContent = `Select Context for ${blockLabel}`;
+  label.textContent = `Current: ${currentContext}`;
+
+  dropdown.innerHTML = Object.values(ContextType).map(ctx => `
+    <option value="${ctx}" ${ctx === currentContext ? "selected" : ""}>${ctx}</option>
+  `).join("");
+
+  modal.style.display = "flex";
+
+  const handleConfirm = () => {
+    const selectedContext = dropdown.value;
+    if (selectedContext) {
+      onConfirm(selectedContext);
+    }
+    closeContextModal();
+  };
+
+  const closeContextModal = () => {
+    modal.style.display = "none";
+    confirmBtn.removeEventListener("click", handleConfirm);
+    cancelBtn.removeEventListener("click", closeContextModal);
+    modal.removeEventListener("click", handleBackdropClick);
+  };
+
+  const handleBackdropClick = (e) => {
+    if (e.target === modal) closeContextModal();
+  };
+
+  confirmBtn.addEventListener("click", handleConfirm);
+  cancelBtn.addEventListener("click", closeContextModal);
+  modal.addEventListener("click", handleBackdropClick);
+}
 
 /* ===============================
    INIT
 ================================ */
 export async function init() {
   const todayKey = getTodayKey();
+
+  // Initialize Plan Day date input with today's date
+  const dateInput = document.getElementById("planDayDateInput");
+  if (dateInput) {
+    dateInput.value = todayKey;
+  }
 
   // 1. Subscribe to Playlists
   subscribeToPlaylists(async (playlists) => {
@@ -38,7 +106,7 @@ export async function init() {
     renderCleaning(currentPlaylists);
     renderDailyPlan(currentPlan);
 
-    await getOrCreateDailyPlan(todayKey, () => generateDailyPlan(currentPlaylists));
+    await getOrCreateDailyPlan(todayKey, () => createDailyPlan(todayKey, currentPlaylists));
   });
 
   // 2. Subscribe to Daily Plan
@@ -127,15 +195,16 @@ function renderDailyPlan(plan) {
   container.innerHTML = scheduleBlocks.map((block, index) => {
     const playlistId = block.playlistId || block.playlist;
     const playlist = currentPlaylists.find(p => p.id === playlistId);
-    const used = playlist ? isUsedToday(playlist.lastUsed) : false;
+    const used = block.used === true || (playlist ? isUsedToday(playlist.lastUsed) : false);
+    const blockKey = block.key || String(block.label || "").toLowerCase().replace(/\s+/g, "");
 
     return `
       <div class="card" style="${used ? 'border-left: 4px solid var(--color-success); opacity: 0.8;' : ''}">
         <h4>${block.label} <small style="color:var(--text-muted)">(${block.context})</small></h4>
         <p><strong>${playlist ? playlist.name : "Silence"}</strong></p>
         <div style="display:flex; gap:8px">
-          ${playlist ? `<button class="btn-primary ${used ? 'btn-success' : ''}" data-id="${playlist.id}" data-action="use" ${used ? 'disabled' : ''}>${used ? 'Done! ✅' : 'Mark as Used'}</button>` : ""}
-          <button class="btn-secondary" data-index="${index}" data-action="swap">Swap</button>
+          ${playlist ? `<button class="btn-primary ${used ? 'btn-success' : ''}" data-id="${playlist.id}" data-block-key="${blockKey}" data-action="use" ${used ? 'disabled' : ''}>${used ? 'Done! ✅' : 'Mark as Used'}</button>` : ""}
+          <button class="btn-secondary" data-index="${index}" data-block-key="${blockKey}" data-action="swap" ${used ? 'disabled' : ''}>Swap</button>
         </div>
       </div>
     `;
@@ -241,6 +310,11 @@ function setupEventListeners() {
   document.getElementById("randomReviewContainer")?.addEventListener("click", handleReviewActions);
   document.getElementById("refreshRandomBtn")?.addEventListener("click", handleRefreshReview);
 
+  // Plan Day handlers
+  document.getElementById("planDayDateInput")?.addEventListener("change", handlePlanDayDateChange);
+  document.getElementById("savePlannedOverrideBtn")?.addEventListener("click", handleSavePlannedOverride);
+  document.getElementById("resetPlannedOverrideBtn")?.addEventListener("click", handleResetPlannedOverride);
+
   // Form for Adding New Playlist
   document.getElementById("addPlaylistBtn")?.addEventListener("click", async () => {
     const container = document.getElementById("addPlaylistForm");
@@ -258,14 +332,135 @@ function setupEventListeners() {
   });
 }
 
+/* ===============================
+   PLAN DAY HANDLERS
+================================ */
+async function handlePlanDayDateChange() {
+  const dateInput = document.getElementById("planDayDateInput");
+  const selectedDate = dateInput.value;
+  if (!selectedDate) return;
+
+  await renderPlanDayBlocks(selectedDate);
+}
+
+async function renderPlanDayBlocks(dateKey) {
+  const container = document.getElementById("planDayBlocksContainer");
+  if (!container) return;
+
+  try {
+    const defaultContexts = getDefaultContextsForDate(dateKey);
+    const plannedOverride = await getPlannedOverride(dateKey);
+
+    container.innerHTML = getAllBlockKeys().map(blockKey => {
+      const block = DEFAULT_BLOCKS.find(b => b.key === blockKey);
+      const selectedContext = plannedOverride[blockKey] || defaultContexts[blockKey];
+
+      return `
+        <div class="card" style="padding: 12px;">
+          <div style="margin-bottom: 8px;">
+            <strong style="display: block; margin-bottom: 4px;">${block.label}</strong>
+            <small class="text-muted">Default: ${defaultContexts[blockKey]}</small>
+          </div>
+          <select data-block-key="${blockKey}" data-block-label="${block.label}" style="width: 100%; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px;">
+            ${Object.values(ContextType).map(ctx => `
+              <option value="${ctx}" ${ctx === selectedContext ? "selected" : ""}>${ctx}</option>
+            `).join("")}
+          </select>
+        </div>
+      `;
+    }).join("");
+  } catch (error) {
+    container.innerHTML = `<p class="text-muted">Error loading blocks: ${error.message}</p>`;
+  }
+}
+
+async function handleSavePlannedOverride() {
+  const dateInput = document.getElementById("planDayDateInput");
+  const selectedDate = dateInput.value;
+  const messageDiv = document.getElementById("planDayMessage");
+
+  if (!selectedDate) {
+    showMessage(messageDiv, "Please select a date", "error");
+    return;
+  }
+
+  const blockSelects = document.querySelectorAll("#planDayBlocksContainer select");
+  const overrides = {};
+
+  blockSelects.forEach(select => {
+    const blockKey = select.dataset.blockKey;
+    const selectedContext = select.value;
+    overrides[blockKey] = selectedContext;
+  });
+
+  try {
+    await setPlannedOverride(selectedDate, overrides);
+    showMessage(messageDiv, "✅ Overrides saved successfully", "success");
+  } catch (error) {
+    showMessage(messageDiv, `❌ Error: ${error.message}`, "error");
+  }
+}
+
+async function handleResetPlannedOverride() {
+  const dateInput = document.getElementById("planDayDateInput");
+  const selectedDate = dateInput.value;
+  const messageDiv = document.getElementById("planDayMessage");
+
+  if (!selectedDate) {
+    showMessage(messageDiv, "Please select a date", "error");
+    return;
+  }
+
+  try {
+    await resetPlannedOverride(selectedDate);
+    await renderPlanDayBlocks(selectedDate);
+    showMessage(messageDiv, "↺ Reset to default template", "success");
+  } catch (error) {
+    showMessage(messageDiv, `❌ Error: ${error.message}`, "error");
+  }
+}
+
+function showMessage(messageDiv, text, type) {
+  if (!messageDiv) return;
+
+  messageDiv.textContent = text;
+  messageDiv.style.display = "block";
+  messageDiv.style.backgroundColor = type === "error" ? "#fee" : "#efe";
+  messageDiv.style.color = type === "error" ? "#c33" : "#3c3";
+  messageDiv.style.borderLeft = `4px solid ${type === "error" ? "#c33" : "#3c3"}`;
+
+  setTimeout(() => {
+    messageDiv.style.display = "none";
+  }, 3000);
+}
+
+
 async function handlePlanActions(e) {
   const btn = e.target.closest("button");
   if (!btn) return;
 
-  const { action, id } = btn.dataset;
-  if (action === "use") { await markAsUsed(id, btn); }
+  const { action, id, blockKey } = btn.dataset;
 
-  if (action === "swap") { alert("Swap logic triggered (Implement in engine.js)"); }
+  if (action === "use") {
+    await markAsUsed(id, btn, blockKey);
+  }
+
+  if (action === "swap") {
+    const block = currentPlan.find(b => b.key === blockKey || b.label === blockKey || String(b.label || "").toLowerCase().replace(/\s+/g, "") === blockKey);
+    if (!block) return;
+
+    if (block.used) {
+      return alert("Cannot swap a block after it has been marked as used.");
+    }
+
+    showContextSelectionModal(block.label, block.context, async (selectedContext) => {
+      try {
+        await overrideBlockContext(getTodayKey(), blockKey, selectedContext);
+      } catch (error) {
+        alert(`Error: ${error.message}`);
+      }
+    });
+  }
 }
 
 async function handleManagerActions(e) {
@@ -318,7 +513,7 @@ async function handleReviewActions(e) {
 
 /* --- Core Logic Actions --- */
 
-export async function markAsUsed(id, btnElement) {
+export async function markAsUsed(id, btnElement, blockKey) {
   const originalText = btnElement.innerHTML;
   btnElement.disabled = true;
   btnElement.innerHTML = "Updating..."
@@ -326,21 +521,25 @@ export async function markAsUsed(id, btnElement) {
   try {
     await updatePlaylist(id, { lastUsed: new Date(), status: "active" });
 
+    if (blockKey) {
+      await markBlockUsed(getTodayKey(), blockKey);
+    }
+
   } catch (error) {
     btnElement.disabled = false;
     btnElement.innerHTML = originalText;
-    alert("Falied to update.")
+    alert("Failed to update.")
   }
 }
 
 async function handleRegenerate() {
   const todayKey = getTodayKey();
-    
+
   lastPlanSnapshot = [...currentPlan]; // For undo
-  const newPlan = await generateDailyPlan(currentPlaylists);
-  
-  await updateDailyPlan(todayKey, newPlan);
-  showUndoToast(todayKey);  
+  const newPlanPayload = await generateDailyPlanPayload(todayKey, currentPlaylists);
+
+  await updateDailyPlan(todayKey, newPlanPayload);
+  showUndoToast(todayKey);
 }
 
 function showUndoToast(todayKey) {
@@ -360,7 +559,7 @@ function showUndoToast(todayKey) {
 
   container.appendChild(toast);
 
-  toast.querySelector("#undo-btn").onclick = async () => {
+  toast.querySelector("#undoBtn").onclick = async () => {
     if (lastPlanSnapshot) {
       await updateDailyPlan(todayKey, lastPlanSnapshot);
       toast.remove();

@@ -4,6 +4,7 @@
 
 <nav class="tabs" role="tablist" aria-label="Soundtrack Navigation">
   <button class="tab active" data-tab="daily" role="tab" aria-selected="true" aria-controls="tab-daily">Daily Plan</button>
+  <button class="tab" data-tab="plan-day" role="tab" aria-selected="false" aria-controls="tab-plan-day">Plan Day</button>
   <button class="tab" data-tab="playlists" role="tab" aria-selected="false" aria-controls="tab-playlists">Playlists</button>
   <button class="tab" data-tab="maintenance" role="tab" aria-selected="false" aria-controls="tab-maintenance">Maintenance</button>
 </nav>
@@ -22,6 +23,29 @@
     <div id="planLoader" class="loader hidden" aria-label="Loading your plan..."></div>
     <div id="dailyPlan" class="section">
         <p class="text-muted">No plan generated yet. Hit regenerate to start.</p>
+    </div>
+  </section>
+
+  <section id="tab-plan-day" class="tab-panel" role="tabpanel">
+    <div class="section">
+      <h3>📅 Plan Day</h3>
+      <p class="text-muted">Set context overrides for a specific date. Uses default template if no override is set.</p>
+      
+      <div style="margin-bottom: 20px;">
+        <label for="planDayDateInput" style="display: block; margin-bottom: 8px; font-weight: 600;">Date:</label>
+        <input type="date" id="planDayDateInput" style="padding: 8px; border: 1px solid var(--border-color); border-radius: 4px;" />
+      </div>
+
+      <div id="planDayBlocksContainer" class="card-grid" style="display: grid; gap: 12px;">
+        <!-- Blocks will be rendered here -->
+      </div>
+
+      <div style="margin-top: 20px; display: flex; gap: 10px;">
+        <button id="savePlannedOverrideBtn" class="btn-primary">💾 Save Overrides</button>
+        <button id="resetPlannedOverrideBtn" class="btn-secondary">↺ Reset to Default</button>
+      </div>
+
+      <div id="planDayMessage" style="margin-top: 12px; padding: 8px; border-radius: 4px; display: none;"></div>
     </div>
   </section>
 
@@ -79,6 +103,21 @@
     </div>
   </section>
 
+</div>
+
+<!-- Context Selection Modal -->
+<div id="contextSelectionModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+  <div style="background: white; padding: 24px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-width: 400px; width: 90%;">
+    <h3 id="contextSelectionTitle">Select Context</h3>
+    <p id="contextSelectionLabel" class="text-muted" style="margin-bottom: 16px;"></p>
+    <select id="contextSelectionDropdown" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 20px;">
+      <!-- Options populated by JS -->
+    </select>
+    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+      <button id="contextSelectionCancel" class="btn-secondary">Cancel</button>
+      <button id="contextSelectionConfirm" class="btn-primary">Confirm</button>
+    </div>
+  </div>
 </div>
 
 <div id="toastContainer" class="toast-container"></div>

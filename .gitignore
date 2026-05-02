@@ -208,3 +208,6 @@ __marimo__/
 
 #js config files
 public/js/config.js
+
+#firebase
+.firebase/
