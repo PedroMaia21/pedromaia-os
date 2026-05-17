@@ -1,28 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Personal OS</title>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Personal OS</title>
+        <link rel="stylesheet" href="/css/base.css">
+        <link rel="stylesheet" href="/css/layout.css">
+        <link rel="stylesheet" href="/css/components.css">
+    </head>
+    <body>
+        <div id="app" style="display:none;">
 
-    <link rel="stylesheet" href="/css/base.css" />
-    <link rel="stylesheet" href="/css/layout.css" />
-    <link rel="stylesheet" href="/css/components.css" />
-  </head>
-  <body>
-    <header id="top-bar"></header>
+            <header id="topbar">
+                <button id="menuToggle">☰</button>
+                <h1>Pedro OS</h1>
+            </header>
 
-    <div id="app">
-      <nav id="sidebar">
-        <h2>Pedro OS</h2>
-        <button id="btn-side-quests">Side Quests</button>
-      </nav>
-      <main id="content">
-        <h1>Welcome</h1>
-        <p>Select a module from the sidebar</p>
-      </main>
-    </div>
+            <!-- Mobile overlay -->
+            <div id="sidebarOverlay"></div>
 
-    <script type="module" src="/js/app.js"></script>
-  </body>
+            <nav id="sidebar">
+                <h2>Pedro OS</h2>
+                <button data-route="home" class="btn-primary">Home</button>
+                <button data-route="sideQuests" class="btn-primary">Side Quests</button>
+                <button data-route="playlists" class="btn-primary">Playlist Suggester</button>    
+            </nav>
+
+            <main id="content">
+                <h1>Welcome</h1>
+                <p>Select a module from the sidebar</p>
+            </main>
+
+        </div>
+        <script type="module" src="/js/app.js"></script>
+    </body>
 </html>

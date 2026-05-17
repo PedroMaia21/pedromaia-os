@@ -1,0 +1,154 @@
+<header class="module-header">
+  <h2>🎵 Daily Soundtrack</h2>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Soundtrack Navigation">
+  <button class="tab active" data-tab="daily" role="tab" aria-selected="true" aria-controls="tab-daily">Daily Plan</button>
+  <button class="tab" data-tab="plan-day" role="tab" aria-selected="false" aria-controls="tab-plan-day">Plan Day</button>
+  <button class="tab" data-tab="playlists" role="tab" aria-selected="false" aria-controls="tab-playlists">Playlists</button>
+  <button class="tab" data-tab="maintenance" role="tab" aria-selected="false" aria-controls="tab-maintenance">Maintenance</button>
+</nav>
+
+<div class="tab-content">
+
+  <section id="tab-daily" class="tab-panel active" role="tabpanel">
+    <div class="daily-plan-controls">
+      <button id="regenBtn" class="btn-secondary">
+        <span id="regenIcon" class="icon">⟳</span> 
+        <span>Regenerate</span>
+      </button>
+      <div id="lastRegenInfo" class="last-regen"></div>
+    </div>
+
+    <div id="planLoader" class="loader hidden" aria-label="Loading your plan..."></div>
+    <div id="dailyPlan" class="section">
+        <p class="text-muted">No plan generated yet. Hit regenerate to start.</p>
+    </div>
+  </section>
+
+  <section id="tab-plan-day" class="tab-panel" role="tabpanel">
+    <div class="section">
+      <h3>📅 Plan Day</h3>
+      <p class="text-muted">Set context overrides for a specific date. Uses default template if no override is set.</p>
+      
+      <div style="margin-bottom: 20px;">
+        <label for="planDayDateInput" style="display: block; margin-bottom: 8px; font-weight: 600;">Date:</label>
+        <input type="date" id="planDayDateInput" style="padding: 8px; border: 1px solid var(--border-color); border-radius: 4px;" />
+      </div>
+
+      <div id="planDayBlocksContainer" class="card-grid" style="display: grid; gap: 12px;">
+        <!-- Blocks will be rendered here -->
+      </div>
+
+      <div style="margin-top: 20px; display: flex; gap: 10px;">
+        <button id="savePlannedOverrideBtn" class="btn-primary">💾 Save Overrides</button>
+        <button id="resetPlannedOverrideBtn" class="btn-secondary">↺ Reset to Default</button>
+      </div>
+
+      <div id="planDayMessage" style="margin-top: 12px; padding: 8px; border-radius: 4px; display: none;"></div>
+    </div>
+  </section>
+
+  <section id="tab-playlists" class="tab-panel" role="tabpanel">
+    <div class="section">
+        <h3>➕ Add Playlist</h3>
+        <div id="addPlaylistForm">
+          <div class="card">
+            <input type="text" id="newName" placeholder="Playlist name" />
+            
+            <div style="margin: 10px 0;">
+              <label>Priority (1–5)</label>
+              <input type="number" id="newPriority" min="1" max="5" value="3" style="width: 60px; margin-left: 10px;"/>
+            </div>
+
+            <div class="context-chips" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;">
+              <label><input type="checkbox" value="Gym" /> Gym</label>
+              <label><input type="checkbox" value="Work" /> Work</label>
+              <label><input type="checkbox" value="Driving" /> Driving</label>
+              <label><input type="checkbox" value="Relax" /> Relax</label>
+              <label><input type="checkbox" value="Free" /> Free</label>
+            </div>
+
+            <details style="margin-bottom: 15px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px;">
+              <summary style="font-weight: 700; cursor: pointer;">Playlist Preference Metadata</summary>
+              <div style="margin-top: 12px; display: grid; gap: 10px;">
+                <input type="text" id="newMainArtist" placeholder="Main artist" />
+                <input type="text" id="newMainGenre" placeholder="Main genre" />
+                <input type="text" id="newMainSubgenre" placeholder="Main subgenre" />
+                <input type="number" id="newRating" min="1" max="5" placeholder="Rating (1-5)" />
+                <input type="text" id="newSourceApp" placeholder="Source app (default: Chosic)" />
+              </div>
+            </details>
+
+            <button id="addPlaylistBtn" class="btn-primary">Add Playlist</button>
+          </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>📚 Manage Playlists</h3>
+        <div id="playlistManager"></div>
+    </div>
+  </section>
+
+  <section id="tab-maintenance" class="tab-panel" role="tabpanel">
+    <div class="section review-module">
+      <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3>🎲 Random Review</h3>
+        <button id="refreshRandomBtn" class="btn-secondary btn-sm">
+          <span class="icon">⟳</span> New Set
+        </button>
+      </div>
+      <p class="text-muted">Review these 3 playlists to keep your library healthy.</p>
+      
+      <div id="randomReviewContainer" class="card-grid review-grid">
+        <p class="text-muted">Loading review set...</p>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <div class="section">
+      <h3>🎧 Preference Battles</h3>
+      <p class="text-muted">Resolve today's taste battles to strengthen future recommendations.</p>
+      <div id="preferenceBattlesContainer" class="card-grid review-grid">
+        <p class="text-muted">Loading preference battles...</p>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <div class="section">
+      <h3>🧹 Preference Cleanup</h3>
+      <p class="text-muted">Inactive artists, genres and subgenres can be removed manually.</p>
+      <div id="preferenceCleanupContainer"></div>
+    </div>
+
+    <hr class="divider" />
+
+    <div class="section">
+      <h3>🧹 Dormant Playlists</h3>
+      <div id="cleaningList"></div>
+    </div>
+  </section>
+
+</div>
+
+<!-- Context Selection Modal -->
+<div id="contextSelectionModal" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h3 id="contextSelectionTitle">Select Context</h3>
+    <p id="contextSelectionLabel" class="text-muted"></p>
+
+    <select id="contextSelectionDropdown">
+      <!-- Options populated by JS -->
+    </select>
+
+    <div class="modal-actions">
+      <button id="contextSelectionCancel" class="btn-secondary">Cancel</button>
+      <button id="contextSelectionConfirm" class="btn-primary">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div id="toastContainer" class="toast-container"></div>

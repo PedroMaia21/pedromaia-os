@@ -18,13 +18,25 @@ The project follows a modular structure:
 /public
 │
 ├── index.html
+├── login.html
+├── css/
+│   ├── base.css
+│   ├── components.css
+│   └── layout.css
 ├── js/
+│   ├── app.js
+│   ├── auth.js
+│   ├── config.js
+│   ├── firebase.js
+│   ├── login.js
 │   └── router.js
 │
 └── modules/
-    ├── sideQuests/
-    │   ├── sideQuests.html
-    │   └── sideQuests.js
+    ├── playlists/
+    │   ├── playlists.html
+    │   ├── playlists.engine.js
+    │   ├── playlists.service.js
+    │   └── playlists.js
     │
     └── [futureModules]/
         ├── moduleName.html

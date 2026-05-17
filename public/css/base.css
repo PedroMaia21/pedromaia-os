@@ -1,18 +1,37 @@
-:root{
-    --bg-main: #0f172a;
-    --bg-card: #1e293b;
+:root {
+    /* Color Palette */
+    --bg-main: #16222E;
+    --bg-card: #1a3a63;
+    --bg-section:#132442;
+
+    /* Typography */
     --text-main: #e5e7eb;
     --text-muted: #94a3b8;
-    --accent: #38bdf8;
+    --accent: #bc8909;
+    
+    /* Layout */
+    --radius: 8px;
+    --space: 1rem;
+    --font-main: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --transition: 0.2s ease;
+
+    /* Status */
+    --color-success: #22c55e;
+    --color-warning: #facc15;
+    --color-danger: #ef4444;
 }
 
-* {
+/* Reset & Base Improvements */
+*, *::before, *::after {
     box-sizing: border-box;
 }
 
 body {
     margin: 0;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
     background: var(--bg-main);
     color: var(--text-main);
     font-family: var(--font-main);
+    min-height: 100vh;
 }
