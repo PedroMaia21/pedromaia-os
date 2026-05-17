@@ -255,8 +255,8 @@ async function changePreferenceEntityUsage(entityType, entityName, delta) {
 }
 
 async function syncPlaylistClassifierEntities(oldClassifier, newClassifier) {
-  const oldNorm = normalizeClassifier(oldClassifier);
-  const newNorm = normalizeClassifier(newClassifier);
+  const oldNorm = normalizeClassifier(oldClassifier || {});
+  const newNorm = normalizeClassifier(newClassifier || {});
 
   const fields = [
     ["ARTIST", "main_artist"],
@@ -307,15 +307,20 @@ export async function addPlaylistWithClassifier(data, classifier = {}) {
 
 export async function updatePlaylistWithClassifier(id, data, classifier = {}) {
   const oldClassifier = await getPlaylistClassifier(id);
+  const normalizedClassifier = normalizeClassifier(classifier);
+
+  // 1. Persist playlist first
   await updatePlaylist(id, data);
 
-  const normalizedClassifier = normalizeClassifier(classifier);
+  // 2. Persist classifier second
   try {
     if (classifierHasMetadata(normalizedClassifier)) {
       await setPlaylistClassifier(id, normalizedClassifier);
     } else {
       await deletePlaylistClassifier(id);
     }
+
+    // 3. Only then sync entities
     await syncPlaylistClassifierEntities(oldClassifier, normalizedClassifier);
     console.debug("Updated playlist classifier", { playlistId: id, classifier: normalizedClassifier });
   } catch (error) {
