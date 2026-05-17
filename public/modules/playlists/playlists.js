@@ -1,8 +1,8 @@
 import {
   subscribeToPlaylists,
-  addPlaylist,
-  updatePlaylist,
-  deletePlaylist,
+  addPlaylistWithClassifier,
+  updatePlaylistWithClassifier,
+  deletePlaylistWithClassifierCleanup,
   getOrCreateDailyPlan,
   subscribeToDailyPlan,
   updateDailyPlan,
@@ -395,6 +395,17 @@ function renderPlaylistManager(playlists) {
             ${renderContextCheckboxes(p.contexts)}
           </div>
 
+          <details style="margin-top: 12px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px;">
+            <summary style="font-weight: 700; cursor: pointer;">Playlist Preference Metadata</summary>
+            <div style="margin-top: 12px; display: grid; gap: 10px;">
+              <input type="text" value="${p.classifier?.main_artist || ""}" data-id="${p.id}" class="edit-main-artist" placeholder="Main artist" />
+              <input type="text" value="${p.classifier?.main_genre || ""}" data-id="${p.id}" class="edit-main-genre" placeholder="Main genre" />
+              <input type="text" value="${p.classifier?.main_subgenre || ""}" data-id="${p.id}" class="edit-main-subgenre" placeholder="Main subgenre" />
+              <input type="number" min="1" max="5" value="${p.classifier?.rating || ""}" data-id="${p.id}" class="edit-rating" placeholder="Rating (1-5)" />
+              <input type="text" value="${p.classifier?.source_app || ""}" data-id="${p.id}" class="edit-source-app" placeholder="Source app (default: Chosic)" />
+            </div>
+          </details>
+
           <div style="margin-top:15px;">
             <button data-id="${p.id}" data-action="save-edit" class="btn-primary">Save</button>
             <button data-action="cancel-edit" class="btn-secondary">Cancel</button>
@@ -454,13 +465,25 @@ function setupEventListeners() {
     const name = document.getElementById("newName").value.trim();
     const priority = Number(document.getElementById("newPriority").value);
     const contexts = Array.from(container.querySelectorAll("input[type=checkbox]:checked")).map(c => c.value);
+    const classifier = {
+      main_artist: document.getElementById("newMainArtist").value,
+      main_genre: document.getElementById("newMainGenre").value,
+      main_subgenre: document.getElementById("newMainSubgenre").value,
+      rating: document.getElementById("newRating").value,
+      source_app: document.getElementById("newSourceApp").value
+    };
 
     if (!name || contexts.length === 0) return alert("Missing info");
 
-    await addPlaylist({ name, priority, contexts, status: "active", lastUsed: null });
+    await addPlaylistWithClassifier({ name, priority, contexts, status: "active", lastUsed: null }, classifier);
     
     // Reset form
     document.getElementById("newName").value = "";
+    document.getElementById("newMainArtist").value = "";
+    document.getElementById("newMainGenre").value = "";
+    document.getElementById("newMainSubgenre").value = "";
+    document.getElementById("newRating").value = "";
+    document.getElementById("newSourceApp").value = "";
     container.querySelectorAll("input[type=checkbox]").forEach(c => c.checked = false);
   });
 }
@@ -614,10 +637,17 @@ async function handleManagerActions(e) {
       priority: Number(card.querySelector(".edit-priority").value),
       contexts: Array.from(card.querySelectorAll("input[type=checkbox]:checked")).map(c => c.value)
     };
+    const classifier = {
+      main_artist: card.querySelector(".edit-main-artist").value,
+      main_genre: card.querySelector(".edit-main-genre").value,
+      main_subgenre: card.querySelector(".edit-main-subgenre").value,
+      rating: card.querySelector(".edit-rating").value,
+      source_app: card.querySelector(".edit-source-app").value
+    };
     editingPlaylistId = null;
-    await updatePlaylist(id, updateData);
+    await updatePlaylistWithClassifier(id, updateData, classifier);
   } else if (action === "delete" && confirm("Delete this playlist?")) {
-    await deletePlaylist(id);
+    await deletePlaylistWithClassifierCleanup(id);
   } else if (action === "archive") {
     await updatePlaylist(id, { status: "archived" });
   }

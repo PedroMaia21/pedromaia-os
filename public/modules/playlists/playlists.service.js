@@ -110,21 +110,25 @@ export async function deletePlaylistClassifier(playlistId) {
 /* ===============================
    PREFERENCE ENTITIES
 ================================ */
+function normalizePreferenceEntityKey(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
 export async function findPreferenceEntity(entityType, entityName) {
   const normalizedType = validatePreferenceEntityType(entityType);
-  const normalizedName = normalizePreferenceEntityName(entityName);
-  if (!normalizedName) return null;
+  const normalizedNameKey = normalizePreferenceEntityKey(entityName);
+  if (!normalizedNameKey) return null;
 
   const entities = await preferenceEntitiesCollection();
-  const q = query(
-    entities,
-    where("entity_type", "==", normalizedType),
-    where("entity_name", "==", normalizedName)
-  );
+  const q = query(entities, where("entity_type", "==", normalizedType));
   const snapshot = await getDocs(q);
   if (snapshot.empty) return null;
-  const docSnap = snapshot.docs[0];
-  return { id: docSnap.id, ...docSnap.data() };
+
+  const match = snapshot.docs.find(docSnap =>
+    normalizePreferenceEntityKey(docSnap.data().entity_name) === normalizedNameKey
+  );
+
+  return match ? { id: match.id, ...match.data() } : null;
 }
 
 export async function getPreferenceEntityById(entityId) {
@@ -177,6 +181,161 @@ export async function deletePreferenceEntity(entityId) {
   if (!entityId) throw new Error("entityId is required");
   const ref = await preferenceEntityRef(entityId);
   await deleteDoc(ref);
+}
+
+function normalizeClassifierValue(value) {
+  const normalized = String(value || "").trim();
+  return normalized === "" ? null : normalized;
+}
+
+function normalizeClassifier(classifier = {}) {
+  const rawRating = classifier.rating;
+  const parsedRating = Number(rawRating);
+  const rating = rawRating === "" || rawRating == null || !Number.isFinite(parsedRating) ? null : parsedRating;
+  const mainArtist = normalizeClassifierValue(classifier.main_artist);
+  const mainGenre = normalizeClassifierValue(classifier.main_genre);
+  const mainSubgenre = normalizeClassifierValue(classifier.main_subgenre);
+  const sourceApp = normalizeClassifierValue(classifier.source_app);
+  const hasAnyMetadata = Boolean(mainArtist || mainGenre || mainSubgenre || rating != null || sourceApp);
+
+  return {
+    main_artist: mainArtist,
+    main_genre: mainGenre,
+    main_subgenre: mainSubgenre,
+    rating,
+    source_app: sourceApp || (hasAnyMetadata ? "Chosic" : null)
+  };
+}
+
+function classifierHasMetadata(classifier) {
+  return Boolean(
+    classifier?.main_artist ||
+    classifier?.main_genre ||
+    classifier?.main_subgenre ||
+    classifier?.rating != null ||
+    classifier?.source_app
+  );
+}
+
+export async function decrementPreferenceEntityPlaylistCount(entityId, delta = 1) {
+  if (!entityId) throw new Error("entityId is required");
+  const ref = await preferenceEntityRef(entityId);
+  return runTransaction(db, async transaction => {
+    const snap = await transaction.get(ref);
+    if (!snap.exists()) {
+      throw new Error("Preference entity not found");
+    }
+    const current = snap.data().active_playlist_count || 0;
+    const next = Math.max(current - delta, 0);
+    transaction.update(ref, {
+      active_playlist_count: next,
+      updated_at: Timestamp.now()
+    });
+  });
+}
+
+async function changePreferenceEntityUsage(entityType, entityName, delta) {
+  const normalizedName = normalizeClassifierValue(entityName);
+  if (!normalizedName) return null;
+
+  const entity = await getOrCreatePreferenceEntity(entityType, normalizedName);
+  if (delta >= 0) {
+    await incrementPreferenceEntityPlaylistCount(entity.id, delta);
+  } else {
+    await decrementPreferenceEntityPlaylistCount(entity.id, Math.abs(delta));
+  }
+
+  console.debug("Preference entity usage updated", {
+    entityType,
+    entityName: normalizedName,
+    entityId: entity.id,
+    delta
+  });
+  return entity;
+}
+
+async function syncPlaylistClassifierEntities(oldClassifier, newClassifier) {
+  const oldNorm = normalizeClassifier(oldClassifier);
+  const newNorm = normalizeClassifier(newClassifier);
+
+  const fields = [
+    ["ARTIST", "main_artist"],
+    ["GENRE", "main_genre"],
+    ["SUBGENRE", "main_subgenre"]
+  ];
+
+  for (const [type, key] of fields) {
+    const oldValue = oldNorm[key];
+    const newValue = newNorm[key];
+
+    if (oldValue && oldValue !== newValue) {
+      const oldEntity = await findPreferenceEntity(type, oldValue);
+      if (oldEntity) {
+        await decrementPreferenceEntityPlaylistCount(oldEntity.id, 1);
+        console.debug("Decremented old preference entity", { type, oldValue, entityId: oldEntity.id });
+      }
+    }
+
+    if (newValue && oldValue !== newValue) {
+      await changePreferenceEntityUsage(type, newValue, 1);
+    }
+  }
+}
+
+export async function addPlaylistWithClassifier(data, classifier = {}) {
+  const colRef = await playlistsRef();
+  const playlistRef = await addDoc(colRef, {
+    ...data,
+    lastUsed: Timestamp.fromDate(new Date(0)),
+    status: "active",
+    createdAt: Timestamp.now()
+  });
+
+  const normalizedClassifier = normalizeClassifier(classifier);
+  if (classifierHasMetadata(normalizedClassifier)) {
+    try {
+      await setPlaylistClassifier(playlistRef.id, normalizedClassifier);
+      await syncPlaylistClassifierEntities(null, normalizedClassifier);
+      console.debug("Saved classifier for new playlist", { playlistId: playlistRef.id, classifier: normalizedClassifier });
+    } catch (error) {
+      console.warn("Failed to save classifier for new playlist", error);
+    }
+  }
+
+  return { id: playlistRef.id, ...data };
+}
+
+export async function updatePlaylistWithClassifier(id, data, classifier = {}) {
+  const oldClassifier = await getPlaylistClassifier(id);
+  await updatePlaylist(id, data);
+
+  const normalizedClassifier = normalizeClassifier(classifier);
+  try {
+    if (classifierHasMetadata(normalizedClassifier)) {
+      await setPlaylistClassifier(id, normalizedClassifier);
+    } else {
+      await deletePlaylistClassifier(id);
+    }
+    await syncPlaylistClassifierEntities(oldClassifier, normalizedClassifier);
+    console.debug("Updated playlist classifier", { playlistId: id, classifier: normalizedClassifier });
+  } catch (error) {
+    console.warn("Failed to sync classifier for updated playlist", error);
+  }
+}
+
+export async function deletePlaylistWithClassifierCleanup(id) {
+  const oldClassifier = await getPlaylistClassifier(id);
+  await deletePlaylist(id);
+
+  if (classifierHasMetadata(oldClassifier)) {
+    try {
+      await syncPlaylistClassifierEntities(oldClassifier, null);
+      await deletePlaylistClassifier(id);
+      console.debug("Cleaned up classifier after playlist delete", { playlistId: id });
+    } catch (error) {
+      console.warn("Failed to clean up classifier after playlist delete", error);
+    }
+  }
 }
 
 export async function listPreferenceEntities(entityType = null) {
