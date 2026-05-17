@@ -211,3 +211,6 @@ public/js/config.js
 
 #firebase
 .firebase/
+
+#node
+node_modules/
