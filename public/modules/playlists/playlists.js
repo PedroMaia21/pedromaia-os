@@ -1,6 +1,7 @@
 import {
   subscribeToPlaylists,
   addPlaylistWithClassifier,
+  updatePlaylist,
   updatePlaylistWithClassifier,
   deletePlaylistWithClassifierCleanup,
   getOrCreateDailyPlan,
@@ -43,6 +44,8 @@ let undoTimeout = null;
 let editingPlaylistId = null;
 let currentReviewSet = [];
 let pendingSwapData = null;
+let isRegenerating = false;
+let eventListenersInitialized = false;
 
 /* ===============================
    CONTEXT SELECTION MODAL
@@ -446,18 +449,28 @@ function renderContextCheckboxes(selected = []) {
     EVENT HANDLERS
 ================================ */
 function setupEventListeners() {
-  document.getElementById("dailyPlan")?.addEventListener("click", handlePlanActions);
-  document.getElementById("playlistManager")?.addEventListener("click", handleManagerActions);
-  document.getElementById("regenBtn")?.addEventListener("click", handleRegenerate);
-  document.getElementById("randomReviewContainer")?.addEventListener("click", handleReviewActions);
-  document.getElementById("preferenceBattlesContainer")?.addEventListener("click", handlePreferenceBattleActions);
-  document.getElementById("preferenceCleanupContainer")?.addEventListener("click", handlePreferenceCleanupActions);
-  document.getElementById("refreshRandomBtn")?.addEventListener("click", handleRefreshReview);
+  if (eventListenersInitialized) return;
+  eventListenersInitialized = true;
+
+  const attach = (selector, event, handler) => {
+    const element = document.getElementById(selector);
+    if (!element) return;
+    element.removeEventListener(event, handler);
+    element.addEventListener(event, handler);
+  };
+
+  attach("dailyPlan", "click", handlePlanActions);
+  attach("playlistManager", "click", handleManagerActions);
+  attach("regenBtn", "click", handleRegenerate);
+  attach("randomReviewContainer", "click", handleReviewActions);
+  attach("preferenceBattlesContainer", "click", handlePreferenceBattleActions);
+  attach("preferenceCleanupContainer", "click", handlePreferenceCleanupActions);
+  attach("refreshRandomBtn", "click", handleRefreshReview);
 
   // Plan Day handlers
-  document.getElementById("planDayDateInput")?.addEventListener("change", handlePlanDayDateChange);
-  document.getElementById("savePlannedOverrideBtn")?.addEventListener("click", handleSavePlannedOverride);
-  document.getElementById("resetPlannedOverrideBtn")?.addEventListener("click", handleResetPlannedOverride);
+  attach("planDayDateInput", "change", handlePlanDayDateChange);
+  attach("savePlannedOverrideBtn", "click", handleSavePlannedOverride);
+  attach("resetPlannedOverrideBtn", "click", handleResetPlannedOverride);
 
   // Form for Adding New Playlist
   document.getElementById("addPlaylistBtn")?.addEventListener("click", async () => {
@@ -689,20 +702,56 @@ export async function markAsUsed(id, btnElement, blockKey) {
     }
 
   } catch (error) {
+    console.error("markAsUsed failed:", error);
     btnElement.disabled = false;
     btnElement.innerHTML = originalText;
-    alert("Failed to update.")
+    alert(error.message || "Failed to update.")
   }
 }
 
 async function handleRegenerate() {
   const todayKey = getTodayKey();
+  const regenBtn = document.getElementById("regenBtn");
 
-  lastPlanSnapshot = [...currentPlan]; // For undo
-  const newPlanPayload = await generateDailyPlanPayload(todayKey, currentPlaylists);
+  if (isRegenerating) {
+    console.debug("Regeneration already in progress, ignoring duplicate action", { todayKey });
+    return;
+  }
 
-  await updateDailyPlan(todayKey, newPlanPayload);
-  showUndoToast(todayKey);
+  isRegenerating = true;
+  if (regenBtn) {
+    regenBtn.disabled = true;
+    regenBtn.dataset.originalText = regenBtn.textContent;
+    regenBtn.textContent = "Regenerating...";
+  }
+
+  console.debug("Regeneration started", {
+    todayKey,
+    currentPlaylists: currentPlaylists.length,
+    currentPlan: currentPlan.length
+  });
+
+  try {
+    lastPlanSnapshot = [...currentPlan]; // For undo
+    const newPlanPayload = await generateDailyPlanPayload(todayKey, currentPlaylists);
+    await updateDailyPlan(todayKey, newPlanPayload);
+    console.debug("Regeneration completed", {
+      todayKey,
+      source: newPlanPayload.source,
+      blockCount: Array.isArray(newPlanPayload.blocks) ? newPlanPayload.blocks.length : 0
+    });
+    showUndoToast(todayKey);
+  } catch (error) {
+    console.error("Regeneration failed", error);
+    alert(`Unable to regenerate plan: ${error.message}`);
+  } finally {
+    isRegenerating = false;
+    if (regenBtn) {
+      regenBtn.disabled = false;
+      regenBtn.textContent = regenBtn.dataset.originalText || "Regenerate";
+      delete regenBtn.dataset.originalText;
+    }
+  }
 }
 
 function showUndoToast(todayKey) {

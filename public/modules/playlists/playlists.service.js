@@ -55,11 +55,11 @@ async function preferenceBattleRef(battleId) {
 }
 
 function normalizePreferenceEntityName(value) {
-  return String(value || "").trim();
+  return String(value || "").replace(/\s+/g, " ").trim();
 }
 
 function normalizePreferenceEntityType(value) {
-  return String(value || "").trim().toUpperCase();
+  return String(value || "").replace(/\s+/g, " ").trim().toUpperCase();
 }
 
 function validatePreferenceEntityType(entityType) {
@@ -111,13 +111,15 @@ export async function deletePlaylistClassifier(playlistId) {
    PREFERENCE ENTITIES
 ================================ */
 function normalizePreferenceEntityKey(value) {
-  return String(value || "").trim().toLowerCase();
+  return normalizePreferenceEntityName(value).toLowerCase();
 }
 
 export async function findPreferenceEntity(entityType, entityName) {
   const normalizedType = validatePreferenceEntityType(entityType);
   const normalizedNameKey = normalizePreferenceEntityKey(entityName);
   if (!normalizedNameKey) return null;
+
+  console.debug("Finding preference entity", { entityType: normalizedType, entityName, normalizedNameKey });
 
   const entities = await preferenceEntitiesCollection();
   const q = query(entities, where("entity_type", "==", normalizedType));
@@ -128,7 +130,9 @@ export async function findPreferenceEntity(entityType, entityName) {
     normalizePreferenceEntityKey(docSnap.data().entity_name) === normalizedNameKey
   );
 
-  return match ? { id: match.id, ...match.data() } : null;
+  const result = match ? { id: match.id, ...match.data() } : null;
+  console.debug("Preference entity lookup result", { entityType: normalizedType, normalizedNameKey, found: Boolean(result) });
+  return result;
 }
 
 export async function getPreferenceEntityById(entityId) {
@@ -146,8 +150,12 @@ export async function getOrCreatePreferenceEntity(entityType, entityName) {
   }
 
   const existing = await findPreferenceEntity(normalizedType, normalizedName);
-  if (existing) return existing;
+  if (existing) {
+    console.debug("Reusing existing preference entity", { entityType: normalizedType, entityName: normalizedName, entityId: existing.id });
+    return existing;
+  }
 
+  console.debug("Creating new preference entity", { entityType: normalizedType, entityName: normalizedName });
   const entities = await preferenceEntitiesCollection();
   const payload = {
     entity_type: normalizedType,
@@ -184,7 +192,7 @@ export async function deletePreferenceEntity(entityId) {
 }
 
 function normalizeClassifierValue(value) {
-  const normalized = String(value || "").trim();
+  const normalized = String(value || "").replace(/\s+/g, " ").trim();
   return normalized === "" ? null : normalized;
 }
 
@@ -373,7 +381,8 @@ export async function incrementPreferenceEntityPlaylistCount(entityId, delta = 1
 }
 
 function getPreferenceEntityKey(entityType, entityName) {
-  return `${entityType}|${normalizePreferenceEntityName(entityName)}`;
+  const normalizedType = validatePreferenceEntityType(entityType);
+  return `${normalizedType}|${normalizePreferenceEntityKey(entityName)}`;
 }
 
 function buildPreferenceBattleKey(entityAId, entityBId) {
@@ -531,12 +540,23 @@ export async function refreshPreferenceEntityCounts() {
 
 export async function ensureDailyPreferenceBattles(dateKey) {
   const existing = await getPreferenceBattlesForDate(dateKey);
-  if (existing.length) return existing;
+  if (existing.length) {
+    console.debug("Daily preference battles already exist", { dateKey, count: existing.length });
+    return existing;
+  }
+
+  console.debug("Generating daily preference battles", { dateKey });
   await refreshPreferenceEntityCounts();
   return generateDailyPreferenceBattles(dateKey);
 }
 
 export async function generateDailyPreferenceBattles(dateKey) {
+  const existingToday = await getPreferenceBattlesForDate(dateKey);
+  if (existingToday.length) {
+    console.debug("Daily preference battle generation skipped because battles already exist for date", { dateKey, count: existingToday.length });
+    return existingToday;
+  }
+
   const artistEntities = (await listPreferenceEntities("ARTIST")).filter(e => e.active_playlist_count > 0);
   const genreEntities = (await listPreferenceEntities("GENRE")).filter(e => e.active_playlist_count > 0);
   const subgenreEntities = (await listPreferenceEntities("SUBGENRE")).filter(e => e.active_playlist_count > 0);
@@ -594,9 +614,11 @@ export async function generateDailyPreferenceBattles(dateKey) {
       };
       const ref = await addDoc(await preferenceBattlesCollection(), payload);
       createdBattles.push({ id: ref.id, ...payload });
+      console.debug("Created preference battle", { dateKey, battleId: ref.id, type: set.type, entities: [candidate.a.id, candidate.b.id] });
     }
   }
 
+  console.debug("Daily preference battle generation completed", { dateKey, createdCount: createdBattles.length });
   return createdBattles;
 }
 
