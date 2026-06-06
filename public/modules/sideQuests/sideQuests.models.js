@@ -30,3 +30,21 @@ export class SideQuestTemplate {
         this.tags = tags;
     }
 }
+
+export class SideQuestInstance {
+    constructor({
+        id,
+        templateId,
+        status,
+        generatedAt,
+        expiresAt = null,
+        completedAt = null
+    }) {
+        this.id = id;
+        this.templateId = templateId;
+        this.status = status;
+        this.generatedAt = generatedAt;
+        this.expiresAt = expiresAt;
+        this.completedAt = completedAt;
+    }
+}
