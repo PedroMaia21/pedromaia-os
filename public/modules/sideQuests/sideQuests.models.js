@@ -20,6 +20,7 @@ export class SideQuestTemplate {
         description,
         category,
         durationMinutes,
+        cooldownDays = 1,
         tags=[]
     }) {
         this.id = id;
@@ -27,6 +28,7 @@ export class SideQuestTemplate {
         this.description = description;
         this.category = category;
         this.durationMinutes = durationMinutes;
+        this.cooldownDays = cooldownDays;
         this.tags = tags;
     }
 }
