@@ -1,6 +1,6 @@
 # Side Quest Generator – Module Context
 
-Last updated: 2026-05-17
+Last updated: 2026-06-07
 
 ---
 
@@ -50,27 +50,30 @@ The system is intentionally **non-context-aware**.
 
 A side quest is defined as a reusable template with the following properties:
 
-- title
-- category
-- estimated duration (10–60 minutes typical)
-- repeatability (yes, core requirement)
-- cooldown interval (prevents immediate repetition)
-- source (optional: YouTube channel, blog, game list, etc.)
-- mode (execution vs suggestion)
+- `id` — stable string identifier (e.g. `"decompression-walk-20"`)
+- `title` — short display name
+- `description` — actionable instructions for execution
+- `category` — one of the defined category values (see §5)
+- `durationMinutes` — estimated duration (10–60 minutes typical)
+- `cooldownDays` — minimum days before reappearance (defaults to 1)
+- `tags` — optional list of descriptive labels (defaults to `[]`)
+
+> **Changed from design doc:** `source`, `mode`, and `repeatable` fields were dropped from the implementation. `description` and `tags` were added. Field names moved from `snake_case` to `camelCase` to match JS conventions (`estimated_duration` → `durationMinutes`, `cooldown_days` → `cooldownDays`).
 
 ---
 
 ## 5. Categories
 
-Defined categories:
+Implemented categories (`SideQuestCategory` enum):
 
-- Decompression / Relaxation  
-- Skills / Light Knowledge Exposure  
-- High-Value Life Activities  
-- Creativity / Play  
-- Media / Infinite Consumption Lists  
+- `DECOMPRESSION` — relaxation and mental rest activities
+- `MEDIA` — video, articles, and passive consumption
+- `SKILL` — light practice or learning
+- `LIFE` — low-effort home or digital maintenance
 
-Categories are used only for grouping and random selection weighting (if needed).
+> **Changed from design doc:** "Creativity / Play" was not implemented as a category. The five conceptual categories collapsed into four concrete enum values. `MEDIA` covers the former "Media / Infinite Consumption Lists". `LIFE` covers "High-Value Life Activities".
+
+Categories are used for grouping. Weighted random selection is not yet implemented.
 
 ---
 
@@ -100,9 +103,9 @@ Hard constraints of the module:
 
 ## 8. Cooldown System
 
-Each template may define:
+Each template defines:
 
-- `cooldown_days`: minimum days before reappearance
+- `cooldownDays`: minimum days before reappearance (defaults to `1` if not specified)
 
 Purpose:
 - prevent fatigue from repeated suggestions
@@ -112,28 +115,34 @@ Purpose:
 
 ## 9. Data Model (Implementation Reference)
 
-### Template
-```json id="m1k9qa"
-{
-  "id": "",
-  "title": "",
-  "category": "",
-  "estimated_duration": 0,
-  "cooldown_days": 0,
-  "source": "",
-  "repeatable": true
-}
-```
+Models are defined in `sideQuests.models.js`. Templates and instances are persisted in Firestore under `users/{userId}/sideQuestTemplates` and `users/{userId}/sideQuestInstances`.
 
-Instance
+### SideQuestTemplate
 ```json
 {
   "id": "",
-  "template_id": "",
-  "created_at": "",
-  "status": "generated | done | skipped"
+  "title": "",
+  "description": "",
+  "category": "DECOMPRESSION | MEDIA | SKILL | LIFE",
+  "durationMinutes": 0,
+  "cooldownDays": 1,
+  "tags": []
 }
 ```
+
+### SideQuestInstance
+```json
+{
+  "id": "",
+  "templateId": "",
+  "status": "AVAILABLE | ACTIVE | COMPLETED | EXPIRED | SKIPPED",
+  "generatedAt": "",
+  "expiresAt": null,
+  "completedAt": null
+}
+```
+
+> **Changed from design doc:** Field names are `camelCase`. `SideQuestInstance` has a richer status set (`AVAILABLE`, `ACTIVE`, `COMPLETED`, `EXPIRED`, `SKIPPED`) replacing the original `generated | done | skipped`. `created_at` is now `generatedAt`. `expiresAt` and `completedAt` are tracked explicitly.
 
 ---
 
@@ -169,10 +178,13 @@ Primary purpose is mental relief and novelty, not productivity.
 
 ### 12. Open Implementation Questions
 
-- Should cooldown be strict or probabilistic?
-- Should categories have weighted randomness?
-- Should "suggestion-only" quests exist without execution tracking?
-- Should sources (blogs/videos) be versioned or dynamic?
+- Should cooldown be strict or probabilistic? *(unresolved)*
+- Should categories have weighted randomness? *(unresolved; not implemented)*
+- Should "suggestion-only" quests exist without execution tracking? *(unresolved)*
+- Should sources (blogs/videos) be versioned or dynamic? *(unresolved; `source` field was dropped from the model)*
+- Should a `CREATIVITY` category be added to match the original design intent?
+- `expiresAt` is tracked on instances — what is the expiry logic and who sets it?
+- The module auto-seeds on first load if no templates exist — should re-seeding ever be supported?
 
 ---
 
@@ -185,3 +197,23 @@ When implementing features in this module:
 - Keep logic stateless where possible
 - Prefer simple selection over optimization
 - Preserve repeatability semantics at all times
+
+---
+
+### 14. Implementation State (as of 2026-06-07)
+
+What is currently built:
+
+- **Models** (`sideQuests.models.js`): `SideQuestTemplate`, `SideQuestInstance`, `SideQuestCategory` enum, `SideQuestStatus` enum — all defined and stable.
+- **Service** (`sideQuests.service.js`): Firestore CRUD — `createTemplate`, `getAllTemplates`, `saveInstance`, `getInstances`. No query filtering, cooldown enforcement, or random selection logic yet.
+- **Seed** (`sideQuests.seed.js`): 16 hand-authored templates across 4 categories (5 DECOMPRESSION, 5 MEDIA, 3 SKILL, 3 LIFE). Auto-runs on first load if the user has no templates.
+- **Entry point** (`sideQuests.js`): Initializes module, checks for empty template collection, seeds if needed. No quest generation UI or logic yet.
+
+What is **not yet built**:
+
+- Random selection logic
+- Cooldown enforcement (no filtering by last-used date)
+- Daily batch generation (Mode 2)
+- Any UI beyond a placeholder paragraph
+- Instance lifecycle management (status transitions, expiry)
+- Completion or skip tracking
