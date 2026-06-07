@@ -68,18 +68,7 @@
               <label><input type="checkbox" value="Relax" /> Relax</label>
               <label><input type="checkbox" value="Free" /> Free</label>
             </div>
-
-            <details style="margin-bottom: 15px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px;">
-              <summary style="font-weight: 700; cursor: pointer;">Playlist Preference Metadata</summary>
-              <div style="margin-top: 12px; display: grid; gap: 10px;">
-                <input type="text" id="newMainArtist" placeholder="Main artist" />
-                <input type="text" id="newMainGenre" placeholder="Main genre" />
-                <input type="text" id="newMainSubgenre" placeholder="Main subgenre" />
-                <input type="number" id="newRating" min="1" max="5" placeholder="Rating (1-5)" />
-                <input type="text" id="newSourceApp" placeholder="Source app (default: Chosic)" />
-              </div>
-            </details>
-
+            
             <button id="addPlaylistBtn" class="btn-primary">Add Playlist</button>
           </div>
         </div>
@@ -104,24 +93,6 @@
       <div id="randomReviewContainer" class="card-grid review-grid">
         <p class="text-muted">Loading review set...</p>
       </div>
-    </div>
-
-    <hr class="divider" />
-
-    <div class="section">
-      <h3>🎧 Preference Battles</h3>
-      <p class="text-muted">Resolve today's taste battles to strengthen future recommendations.</p>
-      <div id="preferenceBattlesContainer" class="card-grid review-grid">
-        <p class="text-muted">Loading preference battles...</p>
-      </div>
-    </div>
-
-    <hr class="divider" />
-
-    <div class="section">
-      <h3>🧹 Preference Cleanup</h3>
-      <p class="text-muted">Inactive artists, genres and subgenres can be removed manually.</p>
-      <div id="preferenceCleanupContainer"></div>
     </div>
 
     <hr class="divider" />

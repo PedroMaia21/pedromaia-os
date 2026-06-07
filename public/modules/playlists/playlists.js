@@ -1,8 +1,8 @@
 import {
   subscribeToPlaylists,
-  addPlaylistWithClassifier,
-  updatePlaylistWithClassifier,
-  deletePlaylistWithClassifierCleanup,
+  addPlaylist,
+  updatePlaylist,
+  deletePlaylist,
   getOrCreateDailyPlan,
   subscribeToDailyPlan,
   updateDailyPlan,
@@ -14,12 +14,6 @@ import {
   getPlannedOverride,
   setPlannedOverride,
   resetPlannedOverride,
-  enrichPlaylistsWithPreferenceData,
-  ensureDailyPreferenceBattles,
-  subscribeToPreferenceBattles,
-  resolvePreferenceBattle,
-  listInactivePreferenceEntities,
-  deletePreferenceEntity
 } from "./playlists.service.js";
 
 import {
@@ -36,8 +30,6 @@ import {
 
 let currentPlaylists = [];
 let currentPlan = [];
-let currentBattles = [];
-let currentInactiveEntities = [];
 let lastPlanSnapshot = null;
 let undoTimeout = null;
 let editingPlaylistId = null;
@@ -107,7 +99,7 @@ export async function init() {
 
   // 1. Subscribe to Playlists
   subscribeToPlaylists(async (playlists) => {
-    currentPlaylists = await enrichPlaylistsWithPreferenceData(playlists);
+    currentPlaylists = playlists;
     updateStatuses(currentPlaylists);
 
     renderPlaylistManager(currentPlaylists);
@@ -123,19 +115,6 @@ export async function init() {
     renderDailyPlan(blocks);
     renderMaintenanceTab(blocks);
   });
-
-  try {
-    await ensureDailyPreferenceBattles(todayKey);
-  } catch (error) {
-    console.warn("Preference battles generation failed", error);
-  }
-
-  subscribeToPreferenceBattles(todayKey, (battles) => {
-    currentBattles = battles;
-    renderPreferenceBattles(battles);
-  });
-
-  await loadInactivePreferenceEntities();
   
   setupEventListeners();
   initPlaylistTabs();
@@ -219,26 +198,10 @@ function renderDailyPlan(plan) {
     const used = block.used === true || (playlist ? isUsedToday(playlist.lastUsed) : false);
     const blockKey = block.key || String(block.label || "").toLowerCase().replace(/\s+/g, "");
 
-    const breakdown = playlist?.preferenceScoreBreakdown;
-    const debugDetails = breakdown ? `
-      <details style="margin: 10px 0; font-size: 0.9rem; color: var(--text-muted);">
-        <summary>Score breakdown</summary>
-        <div style="margin-top: 8px;">
-          Base idle score: ${breakdown.baseIdleScore.toFixed(1)}<br>
-          Priority modifier: ${breakdown.manualPriorityModifier.toFixed(3)}<br>
-          Artist modifier: ${breakdown.artistModifier.toFixed(3)}<br>
-          Genre modifier: ${breakdown.genreModifier.toFixed(3)}<br>
-          Subgenre modifier: ${breakdown.subgenreModifier.toFixed(3)}<br>
-          <strong>Final score: ${breakdown.finalScore.toFixed(1)}</strong>
-        </div>
-      </details>
-    ` : "";
-
     return `
       <div class="card" style="${used ? 'border-left: 4px solid var(--color-success); opacity: 0.8;' : ''}">
         <h4>${block.label} <small style="color:var(--text-muted)">(${block.context})</small></h4>
         <p><strong>${playlist ? playlist.name : "Silence"}</strong></p>
-        ${debugDetails}
         <div style="display:flex; gap:8px">
           ${playlist ? `<button class="btn-primary ${used ? 'btn-success' : ''}" data-id="${playlist.id}" data-block-key="${blockKey}" data-action="use" ${used ? 'disabled' : ''}>${used ? 'Done! ✅' : 'Mark as Used'}</button>` : ""}
           <button class="btn-secondary" data-index="${index}" data-block-key="${blockKey}" data-action="swap" ${used ? 'disabled' : ''}>Swap</button>
@@ -280,100 +243,6 @@ function renderMaintenanceTab(plan) {
   `).join("");
 }
 
-function renderPreferenceBattles(battles) {
-  const container = document.getElementById("preferenceBattlesContainer");
-  if (!container) return;
-
-  if (!battles || battles.length === 0) {
-    container.innerHTML = `<p class="text-muted">No preference battles scheduled for today.</p>`;
-    return;
-  }
-
-  container.innerHTML = battles.map(b => {
-    const resolved = Boolean(b.winner_entity_id);
-    const winnerName = b.winner_entity_id === b.entity_a_id ? b.entity_a_name : b.entity_b_name;
-
-    return `
-      <div class="card review-card" style="border-top: 3px solid var(--accent);">
-        <div style="margin-bottom: 12px;">
-          <strong style="font-size: 1.1rem; display: block; margin-bottom: 4px;">${b.entity_type}</strong>
-          ${resolved ? `
-            <div style="font-size: 0.95rem; color: var(--text-muted);">Resolved: <strong>${winnerName}</strong></div>
-          ` : `
-            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-              <button class="btn-primary btn-sm" data-action="resolve-battle" data-id="${b.id}" data-winner="${b.entity_a_id}">${b.entity_a_name}</button>
-              <span style="font-weight: 700;">vs</span>
-              <button class="btn-primary btn-sm" data-action="resolve-battle" data-id="${b.id}" data-winner="${b.entity_b_id}">${b.entity_b_name}</button>
-            </div>
-          `}
-        </div>
-      </div>
-    `;
-  }).join("");
-}
-
-function renderPreferenceCleanup(entities) {
-  const container = document.getElementById("preferenceCleanupContainer");
-  if (!container) return;
-
-  if (!entities || entities.length === 0) {
-    container.innerHTML = `<p class="text-muted">No inactive preference entities to clean up.</p>`;
-    return;
-  }
-
-  container.innerHTML = entities.map(e => `
-    <div class="card" style="display:flex; justify-content:space-between; align-items:center; gap: 12px; flex-wrap: wrap;">
-      <div style="min-width: 160px;">
-        <strong>${e.entity_name}</strong>
-        <div class="text-muted" style="font-size: 0.85rem;">${e.entity_type}</div>
-      </div>
-      <div style="display:flex; gap: 10px; align-items:center; flex-wrap: wrap;">
-        <span class="badge">${e.active_playlist_count} playlists</span>
-        <button class="btn-secondary btn-sm" data-action="delete-entity" data-id="${e.id}" style="color:var(--color-danger)">Delete</button>
-      </div>
-    </div>
-  `).join("");
-}
-
-async function loadInactivePreferenceEntities() {
-  try {
-    currentInactiveEntities = await listInactivePreferenceEntities();
-    renderPreferenceCleanup(currentInactiveEntities);
-  } catch (error) {
-    console.warn("Unable to load inactive entities", error);
-  }
-}
-
-async function handlePreferenceBattleActions(e) {
-  const btn = e.target.closest("button");
-  if (!btn) return;
-
-  const { action, id, winner } = btn.dataset;
-  if (action === "resolve-battle") {
-    try {
-      await resolvePreferenceBattle(id, winner);
-    } catch (error) {
-      alert(`Could not resolve battle: ${error.message}`);
-    }
-  }
-}
-
-async function handlePreferenceCleanupActions(e) {
-  const btn = e.target.closest("button");
-  if (!btn) return;
-
-  const { action, id } = btn.dataset;
-  if (action === "delete-entity") {
-    if (!confirm("Delete this inactive preference entity?")) return;
-    try {
-      await deletePreferenceEntity(id);
-      await loadInactivePreferenceEntities();
-    } catch (error) {
-      alert(`Could not delete entity: ${error.message}`);
-    }
-  }
-}
-
 function renderPlaylistManager(playlists) {
   const container = document.getElementById("playlistManager");
   if (!container) return;
@@ -394,17 +263,6 @@ function renderPlaylistManager(playlists) {
           <div class="context-chips">
             ${renderContextCheckboxes(p.contexts)}
           </div>
-
-          <details style="margin-top: 12px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px;">
-            <summary style="font-weight: 700; cursor: pointer;">Playlist Preference Metadata</summary>
-            <div style="margin-top: 12px; display: grid; gap: 10px;">
-              <input type="text" value="${p.classifier?.main_artist || ""}" data-id="${p.id}" class="edit-main-artist" placeholder="Main artist" />
-              <input type="text" value="${p.classifier?.main_genre || ""}" data-id="${p.id}" class="edit-main-genre" placeholder="Main genre" />
-              <input type="text" value="${p.classifier?.main_subgenre || ""}" data-id="${p.id}" class="edit-main-subgenre" placeholder="Main subgenre" />
-              <input type="number" min="1" max="5" value="${p.classifier?.rating || ""}" data-id="${p.id}" class="edit-rating" placeholder="Rating (1-5)" />
-              <input type="text" value="${p.classifier?.source_app || ""}" data-id="${p.id}" class="edit-source-app" placeholder="Source app (default: Chosic)" />
-            </div>
-          </details>
 
           <div style="margin-top:15px;">
             <button data-id="${p.id}" data-action="save-edit" class="btn-primary">Save</button>
@@ -450,8 +308,6 @@ function setupEventListeners() {
   document.getElementById("playlistManager")?.addEventListener("click", handleManagerActions);
   document.getElementById("regenBtn")?.addEventListener("click", handleRegenerate);
   document.getElementById("randomReviewContainer")?.addEventListener("click", handleReviewActions);
-  document.getElementById("preferenceBattlesContainer")?.addEventListener("click", handlePreferenceBattleActions);
-  document.getElementById("preferenceCleanupContainer")?.addEventListener("click", handlePreferenceCleanupActions);
   document.getElementById("refreshRandomBtn")?.addEventListener("click", handleRefreshReview);
 
   // Plan Day handlers
@@ -465,25 +321,13 @@ function setupEventListeners() {
     const name = document.getElementById("newName").value.trim();
     const priority = Number(document.getElementById("newPriority").value);
     const contexts = Array.from(container.querySelectorAll("input[type=checkbox]:checked")).map(c => c.value);
-    const classifier = {
-      main_artist: document.getElementById("newMainArtist").value,
-      main_genre: document.getElementById("newMainGenre").value,
-      main_subgenre: document.getElementById("newMainSubgenre").value,
-      rating: document.getElementById("newRating").value,
-      source_app: document.getElementById("newSourceApp").value
-    };
 
     if (!name || contexts.length === 0) return alert("Missing info");
 
-    await addPlaylistWithClassifier({ name, priority, contexts, status: "active", lastUsed: null }, classifier);
+    await addPlaylist({ name, priority, contexts, status: "active", lastUsed: null });
     
     // Reset form
     document.getElementById("newName").value = "";
-    document.getElementById("newMainArtist").value = "";
-    document.getElementById("newMainGenre").value = "";
-    document.getElementById("newMainSubgenre").value = "";
-    document.getElementById("newRating").value = "";
-    document.getElementById("newSourceApp").value = "";
     container.querySelectorAll("input[type=checkbox]").forEach(c => c.checked = false);
   });
 }
@@ -637,17 +481,10 @@ async function handleManagerActions(e) {
       priority: Number(card.querySelector(".edit-priority").value),
       contexts: Array.from(card.querySelectorAll("input[type=checkbox]:checked")).map(c => c.value)
     };
-    const classifier = {
-      main_artist: card.querySelector(".edit-main-artist").value,
-      main_genre: card.querySelector(".edit-main-genre").value,
-      main_subgenre: card.querySelector(".edit-main-subgenre").value,
-      rating: card.querySelector(".edit-rating").value,
-      source_app: card.querySelector(".edit-source-app").value
-    };
     editingPlaylistId = null;
-    await updatePlaylistWithClassifier(id, updateData, classifier);
+    await updatePlaylist(id, updateData);
   } else if (action === "delete" && confirm("Delete this playlist?")) {
-    await deletePlaylistWithClassifierCleanup(id);
+    await deletePlaylist(id);
   } else if (action === "archive") {
     await updatePlaylist(id, { status: "archived" });
   }

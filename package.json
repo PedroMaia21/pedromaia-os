@@ -1,0 +1,11 @@
+{
+  "name": "pedromaia-os",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "echo 'No build step required'"
+  },
+  "dependencies": {
+    "firebase": "^12.8.0",
+    "mqtt": "^5.5.5"
+  }
+}

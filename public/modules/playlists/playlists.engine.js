@@ -109,44 +109,16 @@ export function updateStatuses(playlists) {
   });
 }
 
-export function calculateIdleScore(p) {
+export function calculateScore(p) {
   const today = new Date();
   const lastUsed = p.lastUsed?.toDate?.() ?? new Date(0);
-  const daysSince = (today - lastUsed) / (1000 * 60 * 60 * 24);
-  const recentPenalty = daysSince < 2 ? 2 : 0;
-  return Math.max(daysSince - recentPenalty, 0) + 1;
-}
 
-export function calculateManualPriorityModifier(priority) {
-  const normalized = Number.isFinite(priority) ? Math.min(Math.max(priority, 1), 5) : 3;
-  return 1 + ((normalized - 3) * 0.06);
-}
+  const daysSince =
+    (today - lastUsed) / (1000 * 60 * 60 * 24);
 
-export function calculateScore(p, preferenceModifiers = {}) {
-  const idleScore = calculateIdleScore(p);
-  const priorityModifier = preferenceModifiers.priorityModifier ?? calculateManualPriorityModifier(p.priority);
-  const artistModifier = preferenceModifiers.artistModifier ?? 1.0;
-  const genreModifier = preferenceModifiers.genreModifier ?? 1.0;
-  const subgenreModifier = preferenceModifiers.subgenreModifier ?? 1.0;
-  return idleScore * priorityModifier * artistModifier * genreModifier * subgenreModifier;
-}
+  const recentPenalty = daysSince < 2 ? 10 : 0;
 
-export function getScoreBreakdown(p, preferenceModifiers = {}) {
-  const idleScore = calculateIdleScore(p);
-  const priorityModifier = preferenceModifiers.priorityModifier ?? calculateManualPriorityModifier(p.priority);
-  const artistModifier = preferenceModifiers.artistModifier ?? 1.0;
-  const genreModifier = preferenceModifiers.genreModifier ?? 1.0;
-  const subgenreModifier = preferenceModifiers.subgenreModifier ?? 1.0;
-  const finalScore = idleScore * priorityModifier * artistModifier * genreModifier * subgenreModifier;
-
-  return {
-    baseIdleScore: idleScore,
-    manualPriorityModifier: priorityModifier,
-    artistModifier,
-    genreModifier,
-    subgenreModifier,
-    finalScore
-  };
+  return (p.priority * 2) + daysSince - recentPenalty;
 }
 
 export function isValidContext(value) {
@@ -167,10 +139,7 @@ function choosePlaylistForContext(playlists, context, excludedIds = []) {
       p.status !== "archived" &&
       !excludedIds.includes(p.id)
     )
-    .map(p => ({
-      ...p,
-      score: calculateScore(p, p.preferenceModifiers || {})
-    }))
+    .map(p => ({ ...p, score: calculateScore(p) }))
     .sort((a, b) => b.score - a.score);
 
   if (!candidates.length) {
@@ -180,10 +149,7 @@ function choosePlaylistForContext(playlists, context, excludedIds = []) {
         p.status === "active" &&
         !excludedIds.includes(p.id)
       )
-      .map(p => ({
-        ...p,
-        score: calculateScore(p, p.preferenceModifiers || {})
-      }))
+      .map(p => ({ ...p, score: calculateScore(p) }))
       .sort((a, b) => b.score - a.score);
   }
 
