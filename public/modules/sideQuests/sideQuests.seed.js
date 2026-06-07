@@ -1,5 +1,5 @@
-import { SideQuestCategory } from "./sideQuests.models";
-import { createTemplate } from "./sideQuests.service";
+import { SideQuestCategory } from "./sideQuests.models.js";
+import { createTemplate } from "./sideQuests.service.js";
 
 const seedTemplates = [
     // --- Decompression ---
@@ -155,11 +155,11 @@ const seedTemplates = [
     }
 ];
 
-export async function seedSideQuests() {
-    console.log(`Seeding ${seedTemplates.length} side quest templates...`);
+export async function seedSideQuests(userId) {
+    console.log(`Seeding ${seedTemplates.length} side quest templates for user ${userId}...`);
 
     for (const template of seedTemplates) {
-        await createTemplate(template);
+        await createTemplate(userId, template);
         console.log(`  ✓ ${template.id}`);
     }
 
