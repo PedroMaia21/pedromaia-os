@@ -7,6 +7,7 @@ import {
     addDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { SideQuestTemplate, SideQuestInstance } from "./sideQuests.models.js";
+import { selectRandomTemplate } from "./sideQuests.engine.js";
 
 const TEMPLATES_COLLECTION = "sideQuestTemplates";
 const INSTANCES_COLLECTION = "sideQuestInstances";
@@ -43,4 +44,10 @@ export async function getInstances(userId) {
     return snapshot.docs.map(doc => 
         new SideQuestInstance({ id: doc.id, ...doc.data() })
     );
+}
+
+// --- Generation ---
+export async function generateSideQuest(userId) {
+    const templates = await getAllTemplates(userId);
+    return selectRandomTemplate(templates);
 }
