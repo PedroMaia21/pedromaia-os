@@ -4,9 +4,10 @@ import {
     doc,
     getDocs,
     setDoc,
-    addDoc
+    addDoc,
+    Timestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { SideQuestTemplate, SideQuestInstance } from "./sideQuests.models.js";
+import { SideQuestTemplate, SideQuestInstance, SideQuestStatus } from "./sideQuests.models.js";
 import { selectRandomTemplate } from "./sideQuests.engine.js";
 
 const TEMPLATES_COLLECTION = "sideQuestTemplates";
@@ -49,5 +50,15 @@ export async function getInstances(userId) {
 // --- Generation ---
 export async function generateSideQuest(userId) {
     const templates = await getAllTemplates(userId);
-    return selectRandomTemplate(templates);
+    const template = selectRandomTemplate(templates);
+
+    const instance = new SideQuestInstance({
+        id: doc(instancesRef(userId)).id,
+        templateId: template.id,
+        status: SideQuestStatus.AVAILABLE,
+        generatedAt: Timestamp.now()
+    });
+
+    await saveInstance(userId, instance);
+    return instance;
 }
