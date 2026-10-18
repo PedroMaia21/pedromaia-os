@@ -860,30 +860,52 @@ Estimates are approximate focused development time.
 |---|---|---|---|---:|
 | 1 | Repository and integration verification | — | **Done** | — |
 | 2A | Technical-design reconciliation | 1 | **Done** (this version) | — |
-| 2 | Domain engine foundation | 2A | Enums; validators for §6; ID builders; local dates; lifecycle transitions; snapshot builder; template-application planning; `escapeHtml`; `node:test` suites | 2–3 h |
-| 3A | Shared persistent Firestore cache | 2A | §9.1 edit to `public/js/firebase.js` only; playlists regression checklist; report | 0.5–1 h |
-| 3 | Persistence service | 2, 3A, **O1** | `createFitnessService`; paths; mappers; batches for start, complete, and abandon; query shapes; subscription helpers; error mapping; confirm queries need no index; create `context.md` | 2–3 h |
-| 4 | Exercise library + navigation entry | 3 | Sidebar button; module shell; lifecycle context (§4.6); CSS link check; exercise CRUD/archive | 2–3 h |
-| 5 | Routine management | 4 | Routines with stable occurrences and targets including `targetWeight` | 2–3 h |
+| 2 | Domain engine foundation | 2A | **Implemented** (`3c610ba`). Enums; validators for §6; ID builders; local dates; lifecycle transitions; snapshot builder; template-application planning; `escapeHtml`; `node:test` suites | 2–3 h |
+| 3A | Shared persistent Firestore cache | 2A | **Implemented** (`f88db8c`, committed as "Task 3.1"); browser checks pending (§9.1 regression checklist; §19 items 1–2). §9.1 edit to `public/js/firebase.js` only; playlists regression checklist; report | 0.5–1 h |
+| 3 | Persistence service | 2, 3A, **O1** | **Implemented** (`25a84f4`, committed as "Task 3.2"); browser checks pending (§10.3 index confirmation; §19 item 4; `context.md` manual list). `createFitnessService`; paths; mappers; batches for start, complete, and abandon; query shapes; subscription helpers; error mapping; confirm queries need no index; create `context.md` | 2–3 h |
+| 4 | Module foundation + navigation entry | 3 | **Implemented** (`f9d3735`, committed as "Exercise library + navigation entry" but containing the foundation only); browser checks pending (§19 item 3 stylesheet link; repeated navigation). Sidebar button; module shell; lifecycle context (§4.6); CSS link check | 2–3 h |
+| 4B | Exercise library | 4 | Exercise-library UI on the Task 4 shell using the existing service methods (`listExercises`, `getExercise`, `saveExercise`) and engine validation; no new persistence. Acceptance criteria in §20.1 | TBD |
+| 5 | Routine management | 4B | Routines with stable occurrences and targets including `targetWeight` | 2–3 h |
 | 6 | Weekly template and planning | 5 | Template editor; apply-to-week (online); week view; move, skip, cancel; manual planned sessions; refresh-from-routine | 2.5–3.5 h |
 | 7 | Live logging and completion | 3, 5 (planned start also needs 6) | Planned and unplanned start; set logging with write states; add exercise; remove set; completion summary and batch; abandon | 3–4 h |
 | 8 | Recovery and resumption | 7 | Active-session discovery and resume UI; §9.6 checklist | 1.5–2.5 h |
 | 9 | History, corrections, comparisons, PBs | 7 | History paging; previous performance; comparisons; trends; PBs; corrections with summary rebuild | 2.5–3.5 h |
 | 10 | Progression suggestions | 9, **O2** | §11 rule and approval flow | 1.5–2.5 h |
 | 11 | Guided variations | 6, 9, **O3** | Per O3 | 1.5–2.5 h |
-| 12 | Release verification | 4–11, **O5** | §17.3; rules isolation; deploy procedure | 2–3 h |
+| 12 | Release verification | 4, 4B, 5–11, **O5** | §17.3; rules isolation; deploy procedure | 2–3 h |
 
-**Estimated remaining total: approximately 23–34 hours.**
+**Estimated remaining total: approximately 23–34 hours.** (v1.1 estimate for Tasks 2–12; not recalculated after Tasks 2–4 or for Task 4B.)
 
 Dependency notes:
 - Task 2 is independent of Firebase and can start immediately.
 - Task 3A can run in parallel with Task 2.
 - Task 3 needs the engine contracts (2), the persistent cache (3A), and the persistence-test decision (O1).
 - Live logging (7) and recovery (8) cannot start before the persistence contracts exist (3).
+- Task 4B needs the Task 4 module shell and the Task 3 exercise methods. Task 5 needs 4B because every routine item references an `exerciseId` (§6.4) chosen from the exercise library (scope §5.2).
 - Unplanned logging needs only 3 and 5, so Task 7 can deliver the unplanned path before Task 6 finishes.
 - No rule or index changes are planned. If one becomes necessary, it is added as a dedicated task before the dependent task.
 - Release (12) and any merge to `main` (which triggers a live Hosting deploy) depend on O5.
 - There are no circular dependencies.
+
+### 20.1 Task 4B — Exercise library
+
+Task 4 delivered the module foundation only. The exercise CRUD/archive work originally listed under Task 4 is Task 4B. It implements scope §5.2 with the §6.3 contract.
+
+Acceptance criteria:
+
+1. List the user's exercises with `listExercises()`. Documents it returns under `invalid` are reported and never rewritten (`context.md`, service conventions).
+2. Create an exercise with the §6.3 fields through `saveExercise()`, which validates with the engine's `validateExercise()`. New exercises have `schemaVersion: 1` and `isArchived: false`.
+3. Edit an existing exercise. Saves spread the loaded document (`{ ...loaded, ...edits }`) so `createdAt` and unknown fields are kept.
+4. Archive by saving the exercise with `isArchived: true`. There is no delete (§6.3).
+5. Ask for confirmation before archiving (§15).
+6. Mark archived exercises clearly and keep them apart from active ones, so they cannot be mistaken for active exercises.
+7. Preserve the existing contract: only the `TrackingType` and `Laterality` values the engine defines are offered (§15); engine validation errors are shown to the user; changing `trackingType` or `laterality` remains allowed (§6.3); the user is the service's bound `uid` (§4.5); stored values are rendered per §4.7.
+8. Show loading, empty, and error states, and the §9.2 write states (update without awaiting `write`; handle its rejection).
+9. Module code does not reimplement exercise validation, mapping, or Firestore access; it uses `fitnessPlanner.service.js` and `fitnessPlanner.engine.js`.
+
+Not in Task 4B: permanent deletion, bulk operations, search or filtering beyond separating active and archived exercises, restoring archived exercises, new collections, and new service methods.
+
+Archived-exercise behaviour beyond "archived, never deleted" (§6.3) is not specified; see O6 (§21). Until O6 is decided, Task 4B uses its recommended default.
 
 ## 21. Open decisions
 
@@ -894,6 +916,7 @@ Dependency notes:
 | O3 | Which parameters may vary, under which constraints, and when are variations proposed? (scope §10B) | (a) Exercise substitution only, from user-approved alternatives per routine item, proposed when applying a week; (b) also reorder and target edits; (c) proposed while editing routines | (a), least-recently-performed alternative first | Task 11 |
 | O4 | Can SKIPPED or CANCELLED sessions be restored, and what audit do corrections need? (scope §10C) | Restore: terminal (current default) or allow →PLANNED. Audit: `correctedAt` only (default) or keep previous values | Keep the defaults; adding a transition later is additive | Non-blocking; affects Tasks 6 and 9 if changed |
 | O5 | How do production deploys get `public/js/config.js`, and how are rules confirmed? | Owner to confirm the CI outcome and deploy procedure | Resolve before merging Fitness work to `main` | Task 12; merges to `main` |
+| O6 | How do archived exercises behave? §6.3 says only that exercises are archived, never deleted | Visibility: listed separately, or hidden. Editing: read-only, or editable. Restore: none, or unarchive. New routine items (Task 5): excluded, or allowed | Listed separately and labelled as archived; read-only; no restore; excluded when choosing exercises for new routine items. Restore can be added later without a data change | Non-blocking: Task 4B and Task 5 use the recommendation until decided |
 
 ## 22. Development-session instructions
 

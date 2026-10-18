@@ -1,6 +1,6 @@
 # Fitness Planner – Module Context
 
-Last updated: 2026-10-18 (after Task 4)
+Last updated: 2026-10-18 (after Task 4; task plan corrected for Task 4B)
 
 Records the conventions as implemented and deliberate deviations. The design
 (`technical_design_and_implementation_plan.md`, v1.1) is not repeated here.
@@ -55,8 +55,12 @@ Batches: planned start (workout set + planned update), complete, abandon, apply 
 1. **§9.3 step 4 cache miss.** With SDK 10.12.2, `getDoc` offline rejects with `unavailable` for a document the cache has never seen. The `p_<plannedSessionId>` existence check treats that as "not known locally" and proceeds; otherwise an offline planned start could never succeed. A concurrent start on another device that this cache has not seen is the known limitation already accepted in §9.3.
 2. **Small persistence guards not in the engine:** set save/delete and add-item require an `ACTIVE` workout (corrections on completed sessions must rebuild the summary, Task 9); `updatePlannedSession` requires `PLANNED` and allows only `localDate`, `routineId`, `routineName`, `items`; `addWorkoutItem` accepts only new `ADDED` items. These could move into the engine later.
 3. **Not enforced by the service:** "no unplanned start while another session is ACTIVE" (§9.3 step 1) is left to the module, which owns the active-session subscription.
-4. **Task 4 scope narrowed:** design §20 lists exercise CRUD/archive under Task 4. The Task 4 brief limited it to module foundation and lifecycle, so the exercise library moves to the next UI task.
+4. **Task 4 delivered the module foundation, not the exercise library.** The Task 4 brief excluded exercise management. Exercise CRUD/archive is now Task 4B in design §20 (criteria in §20.1) and must be completed before Task 5. Commit `f9d3735` carries the original title "Exercise library + navigation entry" but contains only the foundation.
 5. **Template application race:** server reads narrow but do not close the window between the existence check and the batch; a session created elsewhere in between would be overwritten.
+
+## Next task
+
+Task 4B — Exercise library (design §20, §20.1), then Task 5 — Routine management. Archived-exercise behaviour follows open decision O6 (§21) until it is decided. The technical design is the source of truth for scope and architecture; this file records implementation status and conventions only.
 
 ## Manual verification still required
 
