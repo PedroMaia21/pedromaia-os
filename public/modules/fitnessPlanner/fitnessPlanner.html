@@ -14,9 +14,80 @@
   </section>
 
   <div class="fp-main hidden" data-fp-main>
-    <section class="section">
-      <p class="text-muted">Exercises, routines, weekly planning and workout logging will appear here.</p>
+
+    <section class="fp-library section" aria-labelledby="fp-library-heading">
+      <div class="section-header">
+        <h3 id="fp-library-heading">Exercise library</h3>
+        <button type="button" class="btn-primary" data-fp-action="add-exercise" data-fp-add>Add exercise</button>
+      </div>
+
+      <p class="fp-notice hidden" data-fp-notice role="status" aria-live="polite"></p>
+
+      <form class="fp-form card hidden" data-fp-form aria-labelledby="fp-form-title">
+        <h4 id="fp-form-title" data-fp-form-title>Add exercise</h4>
+
+        <label for="fp-exercise-name">Name</label>
+        <input id="fp-exercise-name" type="text" autocomplete="off" required data-fp-field="name">
+        <p class="fp-field-error hidden" data-fp-field-error="name"></p>
+
+        <label for="fp-exercise-tracking">Tracking</label>
+        <select id="fp-exercise-tracking" data-fp-field="trackingType"></select>
+        <p class="fp-field-error hidden" data-fp-field-error="trackingType"></p>
+
+        <label for="fp-exercise-laterality">Laterality</label>
+        <select id="fp-exercise-laterality" data-fp-field="laterality"></select>
+        <p class="fp-field-error hidden" data-fp-field-error="laterality"></p>
+
+        <label for="fp-exercise-equipment">Equipment <span class="text-muted">(optional, comma-separated)</span></label>
+        <input id="fp-exercise-equipment" type="text" autocomplete="off" placeholder="barbell, bench" data-fp-field="equipment">
+        <p class="fp-field-error hidden" data-fp-field-error="equipment"></p>
+
+        <label for="fp-exercise-notes">Notes <span class="text-muted">(optional)</span></label>
+        <textarea id="fp-exercise-notes" rows="3" data-fp-field="notes"></textarea>
+        <p class="fp-field-error hidden" data-fp-field-error="notes"></p>
+
+        <p class="fp-form-error hidden" data-fp-form-error role="alert"></p>
+
+        <div class="fp-actions">
+          <button type="submit" class="btn-primary">Save exercise</button>
+          <button type="button" class="btn-secondary" data-fp-action="cancel-form">Cancel</button>
+        </div>
+      </form>
+
+      <div class="fp-confirm card hidden" data-fp-confirm role="alertdialog" aria-labelledby="fp-confirm-title" aria-describedby="fp-confirm-text">
+        <h4 id="fp-confirm-title" data-fp-confirm-title>Archive exercise?</h4>
+        <p id="fp-confirm-text">Archived exercises are kept for your history, but they cannot be edited, restored, or added to new routines. This cannot be undone in the current version.</p>
+        <p class="fp-form-error hidden" data-fp-confirm-error role="alert"></p>
+        <div class="fp-actions">
+          <button type="button" class="btn-primary" data-fp-action="confirm-archive">Archive exercise</button>
+          <button type="button" class="btn-secondary" data-fp-action="cancel-archive" data-fp-confirm-cancel>Cancel</button>
+        </div>
+      </div>
+
+      <p class="text-muted hidden" data-fp-library-loading>Loading exercises…</p>
+
+      <div class="fp-library-error hidden" data-fp-library-error role="alert">
+        <p data-fp-library-error-message></p>
+        <button type="button" class="btn-secondary" data-fp-action="reload-exercises">Retry</button>
+      </div>
+
+      <div class="hidden" data-fp-library-content>
+        <ul class="fp-exercise-list" data-fp-active-list aria-label="Active exercises"></ul>
+        <p class="text-muted hidden" data-fp-active-empty>No exercises yet. Add your first exercise to start building routines.</p>
+
+        <div class="fp-invalid hidden" data-fp-invalid role="alert">
+          <p data-fp-invalid-summary></p>
+          <ul data-fp-invalid-list></ul>
+        </div>
+
+        <section class="fp-archived hidden" data-fp-archived-section aria-labelledby="fp-archived-heading">
+          <h4 id="fp-archived-heading">Archived</h4>
+          <p class="text-muted">Read-only. Kept for workout history.</p>
+          <ul class="fp-exercise-list" data-fp-archived-list aria-label="Archived exercises"></ul>
+        </section>
+      </div>
     </section>
+
   </div>
 
 </div>

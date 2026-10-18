@@ -1,6 +1,6 @@
 # Fitness Planner – Module Context
 
-Last updated: 2026-10-18 (after Task 4; task plan corrected for Task 4B)
+Last updated: 2026-10-18 (after Task 4B)
 
 Records the conventions as implemented and deliberate deviations. The design
 (`technical_design_and_implementation_plan.md`, v1.1) is not repeated here.
@@ -13,21 +13,29 @@ Records the conventions as implemented and deliberate deviations. The design
 |---|---|
 | `fitnessPlanner.engine.js` | Pure domain engine (Task 2). No Firebase/DOM imports. |
 | `fitnessPlanner.service.js` | Firestore boundary (Task 3). `createFitnessService({ db, uid })`. |
-| `fitnessPlanner.html` | Module shell (Task 4): stylesheet link first, `#fitness-planner.fp` root, loading/error/main regions. |
-| `fitnessPlanner.js` | UI controller (Task 4): `init()`, module context, delegated events, shell rendering. |
-| `fitnessPlanner.css` | Module styles (Task 4), every selector under `.fp`. |
-| `tests/fitnessPlanner/*.test.mjs` | `node:test` suites. `module-foundation.test.mjs` covers the module files and lifecycle; the rest cover the engine. |
+| `fitnessPlanner.html` | Module shell (Task 4) and exercise library markup (Task 4B): stylesheet link first, `#fitness-planner.fp` root. |
+| `fitnessPlanner.js` | UI controller: `init()`, module context, delegated events (Task 4); exercise library (Task 4B). |
+| `fitnessPlanner.css` | Module styles, every selector under `.fp`. |
+| `tests/fitnessPlanner/*.test.mjs` | `node:test` suites. `module-harness.mjs` stubs the browser imports and builds a minimal DOM from the real HTML; `module-foundation.test.mjs` and `exercise-library.test.mjs` cover the controller; the rest cover the engine. |
 
 Navigation: one sidebar button `data-route="fitnessPlanner"` in `public/index.html`. The router is unchanged.
 
 ## Module lifecycle conventions
 
 - **Context:** `let current = null` is the only module-level state. `init()` calls `current?.dispose()` and then creates a context `{ root, service, abort, unsubscribers, disposed, alive(), track(), dispose() }`.
-- **Listeners:** one delegated `click` listener on `ctx.root`, registered with `{ signal: ctx.abort.signal }`. Controls use `data-fp-action="<name>"`; handlers live in the `actions` map (own properties only). Never `data-route` inside module markup.
+- **Listeners:** one delegated `click` and one `submit` listener on `ctx.root`, registered with `{ signal: ctx.abort.signal }`. Controls use `data-fp-action="<name>"`; handlers live in the `actions` map (own properties only). Never `data-route` inside module markup.
 - **Subscriptions:** pass every unsubscribe through `ctx.track(fn)`. `dispose()` calls each one once (one failing does not stop the rest). `track()` on an already disposed context releases the subscription immediately.
 - **Async guard:** after every `await` and at the start of every snapshot callback, `if (!ctx.alive()) { ctx.dispose(); return; }`.
 - **Identity:** `init()` resolves `uid` once (`auth.currentUser`, else `getCurrentUser()`). No user means an error state and no service. Initialization errors render the error state instead of rejecting, because the router does not await `init()`.
 - **Rendering:** static markup lives in the HTML; JS fills dynamic text with `textContent` and toggles the shared `.hidden` class. Shell regions are found with `root.querySelector("[data-fp-<name>]")`, not global IDs.
+
+## Exercise library conventions (Task 4B)
+
+- **O6 accepted (2026-10-18, Task 4B brief):** active exercises are listed in the library; archived ones in a separate read-only Archived section with no edit, restore, archive, or delete action; archiving needs a confirmation that names the exercise and says it cannot be undone. **Task 5 must not offer archived exercises for new routine items.** Design §21 still lists O6 as open.
+- **State:** `ctx.library` holds the exercises by ID, invalid records, and the open form or confirmation. Only one form, confirmation, or `getExercise` read is open at a time; list actions and Add are disabled meanwhile.
+- **Reads:** `listExercises()` on entry and after any failed write; invalid documents are listed by ID and reason, never rendered as exercises or rewritten. Edit and archive start with a fresh `getExercise()` so the save carries `createdAt` and unknown fields; a fresh read showing `isArchived: true` refuses the action.
+- **Writes:** create = `exerciseFromForm(values)` (`schemaVersion: 1`, `isArchived: false`, no `id`; the service assigns it). Edit = `{ ...loaded, ...fields }`. Archive = `{ ...loaded, isArchived: true }`. The UI updates when `saveExercise` returns; validation errors are shown next to the field named by `ValidationError.field`.
+- **Labels:** enum labels live in the controller (`TRACKING_TYPE_LABELS`, `LATERALITY_LABELS`); options are built from the engine enums.
 
 ## Service conventions
 
@@ -57,10 +65,11 @@ Batches: planned start (workout set + planned update), complete, abandon, apply 
 3. **Not enforced by the service:** "no unplanned start while another session is ACTIVE" (§9.3 step 1) is left to the module, which owns the active-session subscription.
 4. **Task 4 delivered the module foundation, not the exercise library.** The Task 4 brief excluded exercise management. Exercise CRUD/archive is now Task 4B in design §20 (criteria in §20.1) and must be completed before Task 5. Commit `f9d3735` carries the original title "Exercise library + navigation entry" but contains only the foundation.
 5. **Template application race:** server reads narrow but do not close the window between the existence check and the batch; a session created elsewhere in between would be overwritten.
+6. **Exercise write states come from the `write` promise, not snapshot metadata.** The service has no exercise subscription, so "saved on this device, syncing…" means `saveExercise` returned and `write` is pending; "saved" means it resolved; a rejection shows the error, reopens a create/edit form with the entered values, and reloads the list (Firestore reverts the rejected local write). There is no offline notice (`fromCache`) on this screen.
 
 ## Next task
 
-Task 4B — Exercise library (design §20, §20.1), then Task 5 — Routine management. Archived-exercise behaviour follows open decision O6 (§21) until it is decided. The technical design is the source of truth for scope and architecture; this file records implementation status and conventions only.
+Task 5 — Routine management (design §20). Task 4B is implemented; its browser checks are listed below. Routine item pickers must exclude archived exercises (O6). The technical design is the source of truth for scope and architecture; this file records implementation status and conventions only.
 
 ## Manual verification still required
 
@@ -75,4 +84,5 @@ Nothing below has been run in a browser.
 - **Fallback:** private window – note the "Falling back to memory cache" warning and confirm online use still works.
 - **User isolation (Rules Playground):** user B `get`/`list`/`write` on `users/{A}/fitness*/…` and `…/sets/…` denied; user A allowed. Confirm deployed rules equal `firestore.rules`.
 - **Module foundation (Task 4):** Fitness Planner opens with no console errors; `fitnessPlanner.css` applies (assumption §19.3, `<link>` injected through `innerHTML`); navigate away and back several times without errors or duplicate handling; the other modules still load.
+- **Exercise library (Task 4B):** active exercises load; create, edit, and archive one (confirmation names it); it moves to Archived with no actions; reload and confirm the changes persisted; navigate away and back several times and confirm no duplicate writes (Firebase console) or doubled handling; offline create shows "syncing" and completes on reconnect.
 - **Regression (shared cache, Task 3A):** playlists load and write; daily plan behaviour observed (cache-then-server snapshot race); Side Quests loads.

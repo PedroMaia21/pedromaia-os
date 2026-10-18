@@ -30,3 +30,128 @@
 .fp .fp-main > .section:last-child {
     margin-bottom: 0;
 }
+
+/* --- Exercise library (Task 4B) --- */
+
+.fp .fp-library h3,
+.fp .fp-form h4,
+.fp .fp-confirm h4,
+.fp .fp-archived h4 {
+    margin: 0;
+}
+
+.fp .fp-notice {
+    margin: 0 0 var(--space) 0;
+    color: var(--text-muted);
+}
+
+.fp .fp-notice.fp-notice-error,
+.fp .fp-field-error,
+.fp .fp-form-error {
+    color: var(--color-danger);
+}
+
+.fp .fp-field-error,
+.fp .fp-form-error {
+    margin: -6px 0 12px 0;
+    font-size: 0.9rem;
+}
+
+.fp .fp-form,
+.fp .fp-confirm {
+    display: flex;
+    flex-direction: column;
+}
+
+.fp .fp-form label {
+    font-weight: 600;
+}
+
+.fp .fp-form h4,
+.fp .fp-confirm h4 {
+    margin-bottom: var(--space);
+}
+
+.fp .fp-form textarea {
+    margin: 6px 0 12px 0;
+    padding: 8px;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    background: var(--bg-main);
+    color: var(--text-main);
+    font-family: inherit;
+    width: 100%;
+    resize: vertical;
+}
+
+.fp .fp-form [aria-invalid="true"] {
+    border-color: var(--color-danger);
+}
+
+.fp .fp-confirm {
+    border-left: 4px solid var(--color-warning);
+}
+
+.fp .fp-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.fp .fp-exercise-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.fp .fp-exercise {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space);
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.fp .fp-exercise-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 16rem;
+    min-width: 0;
+}
+
+.fp .fp-exercise-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.fp .fp-exercise-name {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.fp .fp-exercise-notes {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.fp .fp-exercise-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.fp .fp-invalid {
+    margin-top: var(--space);
+    color: var(--color-warning);
+}
+
+.fp .fp-archived {
+    margin-top: var(--space);
+    opacity: 0.85;
+}
