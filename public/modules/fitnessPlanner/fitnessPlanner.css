@@ -1,0 +1,32 @@
+/* /modules/fitnessPlanner/fitnessPlanner.css
+   Fitness Planner module styles (technical design v1.1, §4.7).
+   Every selector is scoped under .fp; shared tokens come from base.css and
+   components (.section, .btn-*, .text-muted, .hidden) from components.css. */
+
+.fp {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space);
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+.fp .fp-header h2 {
+    margin: 0;
+}
+
+.fp .fp-status {
+    margin: 0;
+}
+
+.fp .fp-error {
+    border-left: 4px solid var(--color-danger);
+}
+
+.fp .fp-error p {
+    margin: 0 0 var(--space) 0;
+}
+
+.fp .fp-main > .section:last-child {
+    margin-bottom: 0;
+}
