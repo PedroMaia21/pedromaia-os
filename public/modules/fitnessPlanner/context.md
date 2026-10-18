@@ -27,6 +27,7 @@ Navigation: one sidebar button `data-route="fitnessPlanner"` in `public/index.ht
 - **Subscriptions:** pass every unsubscribe through `ctx.track(fn)`. `dispose()` calls each one once (one failing does not stop the rest). `track()` on an already disposed context releases the subscription immediately.
 - **Async guard:** after every `await` and at the start of every snapshot callback, `if (!ctx.alive()) { ctx.dispose(); return; }`.
 - **Identity:** `init()` resolves `uid` once (`auth.currentUser`, else `getCurrentUser()`). No user means an error state and no service. Initialization errors render the error state instead of rejecting, because the router does not await `init()`.
+- **Markup check:** before any rendering or service call, `init()` checks that every hook in `SHELL_PARTS`, `LIBRARY_PARTS`, and the form fields exists. Outdated markup (e.g. a cached older `fitnessPlanner.html` arriving with newer JS) shows a reload message instead of throwing. Add new hooks to these lists. `firebase.json` serves `/modules/**` and `/js/**` with `Cache-Control: no-cache` so HTML and JS revalidate together.
 - **Rendering:** static markup lives in the HTML; JS fills dynamic text with `textContent` and toggles the shared `.hidden` class. Shell regions are found with `root.querySelector("[data-fp-<name>]")`, not global IDs.
 
 ## Exercise library conventions (Task 4B)

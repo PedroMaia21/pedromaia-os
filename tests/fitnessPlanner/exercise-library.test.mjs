@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
   MODULE_DIR, harness, setUp, mountModule, navigateAway, createFakeService, exercise,
-  settle, click, submit, isShown
+  settle, click, submit, isShown, parseHtml
 } from "./module-harness.mjs";
 import { TrackingType, Laterality } from "../../public/modules/fitnessPlanner/fitnessPlanner.engine.js";
 
@@ -513,6 +513,64 @@ describe("exercise library: lifecycle", () => {
     assert.deepEqual(namesIn(root, "active"), ["Bench press", "Deadlift"]);
     assert.equal(root.listenerCount("click"), 1);
     assert.equal(root.listenerCount("submit"), 1);
+  });
+});
+
+/* ---------- Outdated or incomplete markup ---------- */
+
+// Task 4 (f9d3735) markup: what a browser with a cached pre-4B HTML injects.
+const TASK_4_HTML = `<link rel="stylesheet" href="/modules/fitnessPlanner/fitnessPlanner.css">
+<div id="fitness-planner" class="fp">
+  <header class="fp-header"><h2>Fitness Planner</h2></header>
+  <p class="fp-status text-muted" data-fp-status role="status" aria-live="polite">Loading…</p>
+  <section class="fp-error section hidden" data-fp-error role="alert">
+    <p data-fp-error-message></p>
+    <button type="button" class="btn-secondary" data-fp-action="retry">Retry</button>
+  </section>
+  <div class="fp-main hidden" data-fp-main>
+    <section class="section"><p class="text-muted">Exercises, routines, weekly planning and workout logging will appear here.</p></section>
+  </div>
+</div>`;
+
+describe("exercise library: outdated markup", () => {
+  it("cached Task 4 markup shows the reload message instead of throwing, and makes no service calls", async () => {
+    const service = createFakeService([exercise()]);
+    setUp({ service });
+    document.getElementById("content").replaceChildren(...parseHtml(TASK_4_HTML));
+    const root = document.getElementById("fitness-planner");
+    await quietly(() => controller.init());
+
+    assert.equal(isShown(hook(root, "error")), true);
+    assert.match(hook(root, "error-message").textContent, /outdated copy.*Reload the page/);
+    assert.equal(isShown(hook(root, "main")), false);
+    assert.deepEqual(harness.serviceCalls, []);
+    assert.deepEqual(service.calls, []);
+    assert.deepEqual(harness.firestoreCalls, []);
+    assert.equal(root.listenerCount("click"), 1, "the listener is still owned and released on re-init");
+  });
+
+  it("removing any single hook from the current markup never makes init() throw", async () => {
+    const hooks = mountModule().descendants()
+      .filter(node => [...node.attributes.keys()].some(name => name.startsWith("data-fp-")));
+    assert.ok(hooks.length > 30);
+
+    for (let i = 0; i < hooks.length; i += 1) {
+      setUp({ service: createFakeService([exercise()]) });
+      const root = mountModule();
+      const target = root.descendants()
+        .filter(node => [...node.attributes.keys()].some(name => name.startsWith("data-fp-")))[i];
+      const label = [...target.attributes].map(([k, v]) => `${k}=${v}`).join(" ");
+      target.remove();
+      await assert.doesNotReject(quietly(() => controller.init()), label);
+      await settle();
+    }
+  });
+
+  it("the required-parts lists cover every part() the controller uses", async () => {
+    const js = await readFile(new URL("fitnessPlanner.js", MODULE_DIR), "utf8");
+    const listed = name => new RegExp(`const (SHELL|LIBRARY)_PARTS = Object\\.freeze\\(\\[[^\\]]*"${name}"`).test(js);
+    const used = new Set([...js.matchAll(/part\(ctx, "([a-z-]+)"\)/g)].map(m => m[1]));
+    for (const name of used) assert.ok(listed(name), `${name} is checked by init()`);
   });
 });
 

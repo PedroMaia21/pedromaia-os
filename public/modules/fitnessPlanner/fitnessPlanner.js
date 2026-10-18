@@ -82,6 +82,19 @@ export async function init() {
   current = ctx;
 
   bindEvents(ctx);
+
+  // The HTML and JS are cached separately, so an outdated HTML copy can arrive
+  // with newer JS. Report that instead of failing on a missing element.
+  if (!hasParts(ctx, SHELL_PARTS)) {
+    console.error("Fitness Planner: module markup is missing; reload the page.");
+    return;
+  }
+  if (!hasParts(ctx, LIBRARY_PARTS) || !hasFormFields(ctx)) {
+    console.error("Fitness Planner: module markup is out of date; reload the page.");
+    renderError(ctx, OUTDATED_MARKUP_MESSAGE);
+    return;
+  }
+
   setUpExerciseForm(ctx);
   renderLoading(ctx);
 
@@ -146,6 +159,20 @@ function bindEvents(ctx) {
 
 function part(ctx, name) {
   return ctx.root.querySelector(`[data-fp-${name}]`);
+}
+
+/** Every part() the shell and the exercise library use; checked by init(). */
+const SHELL_PARTS = Object.freeze(["status", "error", "error-message", "main"]);
+const LIBRARY_PARTS = Object.freeze([
+  "add", "notice", "form", "form-title", "form-error", "confirm", "confirm-title", "confirm-error",
+  "confirm-cancel", "library-loading", "library-error", "library-error-message", "library-content",
+  "active-list", "active-empty", "invalid", "invalid-summary", "invalid-list", "archived-section", "archived-list"
+]);
+const OUTDATED_MARKUP_MESSAGE =
+  "This page has an outdated copy of the Fitness Planner. Reload the page. If this keeps happening, clear the browser's cached files.";
+
+function hasParts(ctx, names) {
+  return names.every(name => part(ctx, name) !== null);
 }
 
 function show(element, visible) {
@@ -447,6 +474,10 @@ function field(ctx, name) {
 
 function fieldError(ctx, name) {
   return ctx.root.querySelector(`[data-fp-field-error="${name}"]`);
+}
+
+function hasFormFields(ctx) {
+  return FORM_FIELDS.every(name => field(ctx, name) !== null && fieldError(ctx, name) !== null);
 }
 
 function setUpExerciseForm(ctx) {
