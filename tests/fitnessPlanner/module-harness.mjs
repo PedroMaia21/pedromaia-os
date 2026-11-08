@@ -1,4 +1,4 @@
-// Shared harness for Fitness Planner UI-controller tests (Tasks 4 and 4B).
+// Shared harness for Fitness Planner UI-controller tests (Tasks 4, 4B, and 5).
 //
 // - node:module hooks replace the browser-only imports: the Firebase CDN
 //   modules, the shared public/js/firebase.js, and (for the controller only)
@@ -10,7 +10,7 @@
 // Import this module before importing the controller.
 import { registerHooks } from "node:module";
 import { readFileSync } from "node:fs";
-import { validateExercise } from "../../public/modules/fitnessPlanner/fitnessPlanner.engine.js";
+import { validateExercise, validateRoutine } from "../../public/modules/fitnessPlanner/fitnessPlanner.engine.js";
 
 export const MODULE_DIR = new URL("../../public/modules/fitnessPlanner/", import.meta.url);
 const CONTROLLER_URL = new URL("fitnessPlanner.js", MODULE_DIR).href;
@@ -327,16 +327,19 @@ function deferred() {
 }
 
 /**
- * In-memory stand-in for the exercise part of createFitnessService. Writes are
- * validated by the real engine first (synchronous ValidationError, like the
- * service), applied locally, and return `{ id, write }`. `write` stays pending
- * until the test settles it, unless `autoAck` is set. A rejected write reverts
- * the stored document, as Firestore does.
+ * In-memory stand-in for the exercise and routine parts of createFitnessService.
+ * Writes are validated by the real engine first (synchronous ValidationError,
+ * like the service), applied locally, and return `{ id, write }`. `write` stays
+ * pending until the test settles it, unless `autoAck` is set. A rejected write
+ * reverts the stored document, as Firestore does. Exercise calls are recorded
+ * in `calls`; routine calls in `routineCalls`, and routine writes in `routineWrites`.
  */
-export function createFakeService(initial = [], { invalid = [], autoAck = true } = {}) {
+export function createFakeService(initial = [], { invalid = [], autoAck = true, routines = [], invalidRoutines = [] } = {}) {
   const clone = value => structuredClone(value);
   const store = new Map(initial.map(exercise => [exercise.id, clone(exercise)]));
+  const routineStore = new Map(routines.map(routine => [routine.id, clone(routine)]));
   let nextId = 1;
+  let nextRoutineId = 1;
   const service = {
     uid: "user-a",
     calls: [],
@@ -381,9 +384,86 @@ export function createFakeService(initial = [], { invalid = [], autoAck = true }
       service.writes.push(entry);
       if (service.autoAck) entry.resolve();
       return { id, write: write.promise };
+    },
+
+    routineCalls: [],
+    routineStore,
+    invalidRoutines,
+    routineWrites: [],
+    routineHold: { list: false, get: false },
+    routineHeld: { list: [], get: [] },
+    routineFail: { list: null, get: null },
+    routineGetResult: null, // when set, getRoutine returns this instead of the store
+
+    async listRoutines() {
+      service.routineCalls.push({ op: "list" });
+      if (service.routineHold.list) { const d = deferred(); service.routineHeld.list.push(d); await d.promise; }
+      if (service.routineFail.list) throw service.routineFail.list;
+      return { docs: [...routineStore.values()].map(clone), invalid: service.invalidRoutines.map(clone) };
+    },
+
+    async getRoutine(id) {
+      service.routineCalls.push({ op: "get", id });
+      if (service.routineHold.get) { const d = deferred(); service.routineHeld.get.push(d); await d.promise; }
+      if (service.routineFail.get) throw service.routineFail.get;
+      if (service.routineGetResult !== null) return clone(service.routineGetResult);
+      return routineStore.has(id) ? clone(routineStore.get(id)) : null;
+    },
+
+    saveRoutine(routine, exercisesById) {
+      service.routineCalls.push({ op: "save", routine: clone(routine), exercisesById: clone(exercisesById) });
+      validateRoutine(routine, exercisesById);
+      const id = routine.id ?? `routine${String(nextRoutineId++).padStart(4, "0")}`;
+      const previous = routineStore.get(id);
+      const { id: _ignored, ...fields } = routine;
+      routineStore.set(id, { id, ...clone(fields) });
+      const write = deferred();
+      const entry = {
+        id,
+        resolve: () => write.resolve(),
+        reject: error => {
+          previous === undefined ? routineStore.delete(id) : routineStore.set(id, previous);
+          write.reject(error);
+        }
+      };
+      service.routineWrites.push(entry);
+      if (service.autoAck) entry.resolve();
+      return { id, write: write.promise };
     }
   };
   return service;
+}
+
+/** Stored routine (§6.4) with two items; occurrence IDs match the engine format. */
+export function routine(overrides = {}) {
+  return {
+    id: "rt-upper",
+    schemaVersion: 1,
+    name: "Upper body A",
+    isArchived: false,
+    items: [
+      routineItem(),
+      routineItem({ occurrenceId: "occbbbbbbbb2", exerciseId: "ex-squat", order: 1, targetWeight: null, restSeconds: null, notes: "" })
+    ],
+    createdAt: new Date(Date.UTC(2026, 9, 2, 12, 0, 0)),
+    updatedAt: new Date(Date.UTC(2026, 9, 3, 12, 0, 0)),
+    ...overrides
+  };
+}
+
+export function routineItem(overrides = {}) {
+  return {
+    occurrenceId: "occaaaaaaaa1",
+    exerciseId: "ex-bench",
+    order: 0,
+    targetSets: 3,
+    repMin: 8,
+    repMax: 12,
+    targetWeight: 60,
+    restSeconds: 90,
+    notes: "Pause on chest",
+    ...overrides
+  };
 }
 
 export function exercise(overrides = {}) {

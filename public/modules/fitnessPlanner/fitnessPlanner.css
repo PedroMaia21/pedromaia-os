@@ -155,3 +155,116 @@
     margin-top: var(--space);
     opacity: 0.85;
 }
+
+/* --- Routines (Task 5) --- */
+
+.fp .fp-routines h3,
+.fp .fp-routine-form .fp-subheading {
+    margin: 0;
+}
+
+.fp .fp-routine-form .fp-subheading {
+    margin: var(--space) 0 8px 0;
+    font-size: 1rem;
+}
+
+.fp .fp-routine-list,
+.fp .fp-occurrence-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.fp .fp-routine {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--space);
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.fp .fp-routine-name,
+.fp .fp-routine-item-name {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.fp .fp-routine-items {
+    margin: 4px 0 0 0;
+    padding-left: 1.25rem;
+}
+
+.fp .fp-routine-item {
+    overflow-wrap: anywhere;
+}
+
+.fp .fp-badge-warning {
+    color: var(--color-warning);
+}
+
+.fp .fp-occurrence {
+    margin-bottom: 12px;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius);
+}
+
+.fp .fp-occurrence-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.fp .fp-targets {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+    gap: 0 12px;
+}
+
+.fp .fp-target {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.fp .fp-target input {
+    width: 100%;
+}
+
+.fp .fp-occurrence-note {
+    margin: 0 0 8px 0;
+    font-size: 0.9rem;
+}
+
+.fp .fp-occurrence .fp-field-error {
+    margin: 0;
+}
+
+.fp .fp-picker {
+    display: flex;
+    flex-direction: column;
+    margin-top: 8px;
+}
+
+.fp .fp-picker-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.fp .fp-picker-row select {
+    flex: 1 1 14rem;
+    min-width: 0;
+}
+
+.fp .fp-picker .text-muted,
+.fp .fp-routine-form > .text-muted {
+    margin: 4px 0 12px 0;
+    font-size: 0.9rem;
+}

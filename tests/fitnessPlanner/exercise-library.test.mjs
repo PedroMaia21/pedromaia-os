@@ -568,7 +568,7 @@ describe("exercise library: outdated markup", () => {
 
   it("the required-parts lists cover every part() the controller uses", async () => {
     const js = await readFile(new URL("fitnessPlanner.js", MODULE_DIR), "utf8");
-    const listed = name => new RegExp(`const (SHELL|LIBRARY)_PARTS = Object\\.freeze\\(\\[[^\\]]*"${name}"`).test(js);
+    const listed = name => new RegExp(`const (SHELL|LIBRARY|ROUTINE)_PARTS = Object\\.freeze\\(\\[[^\\]]*"${name}"`).test(js);
     const used = new Set([...js.matchAll(/part\(ctx, "([a-z-]+)"\)/g)].map(m => m[1]));
     for (const name of used) assert.ok(listed(name), `${name} is checked by init()`);
   });

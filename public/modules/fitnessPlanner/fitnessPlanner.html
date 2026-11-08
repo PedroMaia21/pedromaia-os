@@ -88,6 +88,61 @@
       </div>
     </section>
 
+    <section class="fp-routines section" aria-labelledby="fp-routines-heading">
+      <div class="section-header">
+        <h3 id="fp-routines-heading">Routines</h3>
+        <button type="button" class="btn-primary" data-fp-action="add-routine" data-fp-routine-add>Add routine</button>
+      </div>
+
+      <p class="fp-notice hidden" data-fp-routine-notice role="status" aria-live="polite"></p>
+
+      <form class="fp-form fp-routine-form card hidden" data-fp-routine-form aria-labelledby="fp-routine-form-title">
+        <h4 id="fp-routine-form-title" data-fp-routine-form-title>Add routine</h4>
+
+        <label for="fp-routine-name">Name</label>
+        <input id="fp-routine-name" type="text" autocomplete="off" required data-fp-routine-name>
+        <p class="fp-field-error hidden" data-fp-routine-name-error></p>
+
+        <h5 class="fp-subheading">Exercises</h5>
+        <ol class="fp-occurrence-list" data-fp-occurrence-list aria-label="Exercises in this routine"></ol>
+        <p class="text-muted hidden" data-fp-occurrence-empty>No exercises in this routine yet. You can save it empty and add exercises later.</p>
+
+        <div class="fp-picker hidden" data-fp-picker>
+          <label for="fp-routine-exercise">Add an exercise</label>
+          <div class="fp-picker-row">
+            <select id="fp-routine-exercise" data-fp-picker-select></select>
+            <button type="button" class="btn-secondary" data-fp-action="add-occurrence">Add</button>
+          </div>
+          <p class="text-muted">Archived exercises cannot be added. The same exercise can be added more than once.</p>
+        </div>
+        <p class="text-muted hidden" data-fp-picker-empty>No active exercises to add. Add exercises in the exercise library first.</p>
+
+        <p class="fp-form-error hidden" data-fp-routine-form-error role="alert"></p>
+
+        <div class="fp-actions">
+          <button type="submit" class="btn-primary">Save routine</button>
+          <button type="button" class="btn-secondary" data-fp-action="cancel-routine">Cancel</button>
+        </div>
+      </form>
+
+      <p class="text-muted hidden" data-fp-routine-loading>Loading routines…</p>
+
+      <div class="fp-library-error hidden" data-fp-routine-error role="alert">
+        <p data-fp-routine-error-message></p>
+        <button type="button" class="btn-secondary" data-fp-action="reload-routines">Retry</button>
+      </div>
+
+      <div class="hidden" data-fp-routine-content>
+        <ul class="fp-routine-list" data-fp-routine-list aria-label="Routines"></ul>
+        <p class="text-muted hidden" data-fp-routine-empty>No routines yet. Add a routine to group exercises with their targets.</p>
+
+        <div class="fp-invalid hidden" data-fp-routine-invalid role="alert">
+          <p data-fp-routine-invalid-summary></p>
+          <ul data-fp-routine-invalid-list></ul>
+        </div>
+      </div>
+    </section>
+
   </div>
 
 </div>
